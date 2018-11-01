@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='test2015')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=4)
+    parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -53,6 +53,10 @@ def parse_args():
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
+    parser.add_argument('--save_fig_loc', type=str, default='saved_figs/')
+    parser.add_argument('--x_method', type=str, default='sum')
+    parser.add_argument('--t_method', type=str, default='mean')
+    parser.add_argument('--s_method', type=str, default='BestOne')
     args = parser.parse_args()
     return args
 
@@ -86,7 +90,7 @@ def showPlot(points):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
-def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab):
+def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc,x_method, t_method, s_method_):
     N = len(dataloader.dataset)
     M = dataloader.dataset.num_ans_candidates
     pred = torch.FloatTensor(N, M).zero_()
@@ -102,7 +106,8 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab):
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
-            generated_captions, logits, att = caption_generator.generate_caption(v, b, q, None)
+            generated_captions, logits, att = caption_generator.generate_caption(v, b, q, x_method, s_method=s_method_)
+
             pred[idx:idx + batch_size, :].copy_(logits.data)
             qIds[idx:idx + batch_size].copy_(i)
             idx += batch_size
@@ -113,15 +118,28 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab):
             for idx in range(len(i)):
                 img_list.append(get_image(i[idx].item(),Dict_qid2vid))
                 question_list.append(get_question(q.data[idx],dataloader))
-                #pdb.set_trace()
-                caption=[vocab.idx2word[generated_captions[idx][w_idx].item()] for w_idx in range(generated_captions.size()[1])]
-                captions_list.append(caption)
+                if (s_method_ == 'BestOne'):
+                    caption = [vocab.idx2word[generated_captions[idx][w_idx].item()] for w_idx in
+                               range(generated_captions.size()[1])]
+                    captions_list.append(caption)
+                elif (s_method_ == ' BeamSearch'):
+                    for generated_caption in generated_captions:
+                        caption = [vocab.idx2word[generated_caption[idx][w_idx].item()] for w_idx in
+                                   range(generated_caption.size()[1])]
+                        captions_list.append(caption)
+
                 answer_list.append(get_answer(logits.data[idx], dataloader))
 
-        print(question_list[0])
-        print(answer_list[0])
-        print(captions_list[0])
-        showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0])
+        #print(question_list[0])
+        #print(answer_list[0])
+        #print(captions_list[0])
+        if (s_method_ == 'BestOne'):
+            tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], display=False)
+        elif (s_method_ == ' BeamSearch'):
+            tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
+                                    captions_list[:len(generated_captions)], display=False, NumBeams=len(generated_captions))
+        plt.savefig(os.path.join(save_fig_loc,t_method, x_method, s_method_, '{}.png'.format(i.item())))
+        plt.close(tmp_fig)
 
     bar.update(idx)
     return pred, qIds
@@ -139,23 +157,32 @@ def make_json(logits, qIds, dataloader):
 
 #######################################################################################
 
-def showAttention(input_question, image, output_answer, attentions,bbox, explain):
+def showAttention(input_question, image, output_answer, attentions,bbox, explains, display=True, NumBeams=1):
     # Set up figure with colorbar
-    fig = plt.figure(figsize=(19,25))
+    fig = plt.figure(figsize=(25,19))
     #pdb.set_trace()
+    fig.text(0.2, 0.95, input_question, ha='center', va='center', fontsize=20)
+
     Answer='Answer : {}'.format(output_answer)
-    fig.text(0.2, 0.95, Answer, ha='center', va='center')
+    fig.text(0.2, 0.90, Answer, ha='center', va='center',fontsize=20)
 
     #pdb.set_trace()
     x_caption = ''
-    if explain[0] == '<start>':
-        for i in explain[1:]:
-            if i != '<end>':
-                x_caption=x_caption+' '+i
-            else:
-                break
+    for num_sen in range(NumBeams):
+        if(NumBeams > 1):
+            explain=explains[num_sen]
+        else:
+            explain=explains
+        if explain[0] == '<start>':
+            for i in explain[1:]:
+                if i != '<end>':
+                    x_caption=x_caption+' '+i
+                else:
+                    break
+        if (NumBeams > 1):
+            x_caption=x_caption+'\n'
     Explain = 'Explain : {}'.format(x_caption)
-    fig.text(0.5, 0.95, Explain, ha='center', va='center')
+    fig.text(0.5, 0.90, Explain, ha='center', va='center',fontsize=20)
     attentions=attentions.cpu()
 
 
@@ -244,8 +271,11 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
     # Show label at every tick
     ax2.xaxis.set_major_locator(ticker.MultipleLocator(1))
     ax2.yaxis.set_major_locator(ticker.MultipleLocator(1))
+    
+    if display:
+        plt.show()
 
-    plt.show()
+    return fig
 
 #######################################################################################`
 
@@ -295,15 +325,20 @@ if __name__ == '__main__':
         print('loading %s' % model_path)
         model_data = torch.load(model_path)
 
-        model_hsc_path = os.path.join(
-            args.hsc_path + 'model-{}-400.pth'.format(args.hsc_epoch))
+        if(args.t_method == 'mean'):
+            model_hsc_path = os.path.join(
+                args.hsc_path + 'model-{}-400.pth'.format(args.hsc_epoch))
+        else:
+            model_hsc_path = os.path.join(
+                args.hsc_path,args.t_method, 'model-{}-400.pth'.format(args.hsc_epoch))
+
         print('loading hsc datas %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
         #pdb.set_trace()
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
 
-        model = nn.DataParallel(model).cuda()
+        # model = nn.DataParallel(model).cuda()
         model.load_state_dict(model_data.get('model_state', model_data))
 
         #pdb.set_trace()
@@ -318,7 +353,9 @@ if __name__ == '__main__':
 
         #Concatenate Encoder-Decoder to model and check whether the model generates correct captions based on visual cues
 
-        logits, qIds = check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab)
+        if not os.path.exists(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method)):
+            os.makedirs(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method))
+        logits, qIds = check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab,args.save_fig_loc,args.x_method, args.t_method, args.s_method)
 
         ################################################################################################################
 
