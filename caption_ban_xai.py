@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('--num_hid', type=int, default=1280)
     parser.add_argument('--model', type=str, default='ban')
     parser.add_argument('--op', type=str, default='c')
-    parser.add_argument('--label', type=str, default='')
+    parser.add_argument('--label', type=str, default='XAI')
     parser.add_argument('--gamma', type=int, default=2)
     parser.add_argument('--split', type=str, default='test2015')
     parser.add_argument('--input', type=str, default='saved_models/ban')
@@ -334,11 +334,12 @@ if __name__ == '__main__':
 
         print('loading hsc datas %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
+        pdb.set_trace()
         #pdb.set_trace()
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
 
-        # model = nn.DataParallel(model).cuda()
+        model = nn.DataParallel(model).cuda()
         model.load_state_dict(model_data.get('model_state', model_data))
 
         #pdb.set_trace()

@@ -52,11 +52,11 @@ def main(args):
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    if(args.t_method == 'mean'):
-        params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
-    elif(args.t_method == 'uncorr'):
-        params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters()) + list(
-            encoder.linear_U1.parameters()) + list(encoder.linear_U2.parameters())
+    # if(args.t_method == 'mean'):
+    #     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
+    # elif(args.t_method == 'uncorr'):
+    params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters()) + list(
+        encoder.linear_U1.parameters()) + list(encoder.linear_U2.parameters())
     #params = list(decoder.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
     
