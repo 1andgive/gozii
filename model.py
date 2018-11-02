@@ -112,31 +112,34 @@ class DecoderRNN(nn.Module):
 
     def BeamSearch(self, features, states=None, NumBeams=5):
         """Generate captions for given image features using greedy search."""
-        sample_ids=[[] for x in range(NumBeams)]
+        num_batches=features.size(0)
+        sample_ids=[]
         inputs = [features.unsqueeze(1) for x in range(NumBeams)]
         states = [states for x in range(NumBeams)]
-        Probs = [0.0 for x in range(NumBeams)]
+        Probs = torch.zeros(num_batches,NumBeams).cuda()
 
         tmp_2step_samples_ids=[[[] for x in range(NumBeams)] for y in range(NumBeams)]
-        tmp_2step_Probs = [[[] for x in range(NumBeams)] for y in range(NumBeams)]
+        tmp_2step_Probs = [[] for y in range(NumBeams)]
 
         for i in range(self.max_seg_length):
             for beam_idx in range(NumBeams):
+
                 hiddens, states[beam_idx] = self.lstm(inputs[beam_idx], states[beam_idx])  # hiddens: (batch_size, 1, hidden_size)
                 outputs = self.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
                 tmp_probs, predicted = max_k(outputs, dim_=1, k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
 
                 # if intial step, directly go to next step
                 if( i == 0):
-                    sample_ids=append_elemwise(sample_ids,predicted)
-                    inputs = [self.embed(predicted[tmp_idx]) for tmp_idx in range(NumBeams)]  # inputs: (batch_size, embed_size)
-                    Probs = [sum(x) for x in zip(Probs,tmp_probs)]
+                    sample_ids=[[predicted[:,idx]] for idx in range(NumBeams)]
+                    inputs = [self.embed(predicted[:,tmp_idx]).unsqueeze(1) for tmp_idx in range(NumBeams)]  # inputs: (batch_size, embed_size)
+                    Probs = Probs+tmp_probs
                     break # go to next step
 
                 # find best-k among k*k candidates
                 else:
-                    tmp_2step_samples_ids[beam_idx]=[sample_ids[beam_idx].append(new_elem) for new_elem in predicted]
-                    tmp_2step_Probs[beam_idx] = [sum([Probs[beam_idx], x]) for x in tmp_probs] #Probs should be cumulative probability
+                    tmp_2step_samples_ids[beam_idx]=[sample_ids[beam_idx].copy() for tmp_idx in range(NumBeams)]
+                    [tmp_2step_samples_ids[beam_idx][tmp_idx].append(predicted[:,tmp_idx]) for tmp_idx in range(NumBeams)]
+                    tmp_2step_Probs[beam_idx] = (Probs+ tmp_probs).unsqueeze(2) #Probs should be cumulative probability
 
                 # sample_ids[beam_idx].append(predicted[beam_idx])
                 # inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
@@ -145,15 +148,14 @@ class DecoderRNN(nn.Module):
             if (i>0):
                 # first, select best new elements for sample_ids from tmp_2step_samples_ids
                 # select inputs for the next step
-                Top_k_Probs,Top_k_idx2D=max2D_k(tmp_2step_Probs,k=NumBeams) # Top_k_idx2D => (rows,cols) and rows corresponds to beam_idx value of sample_ids and Probs
+                Probs,Top_k_idx0,Top_k_idx1=max2D_k(tmp_2step_Probs,k=NumBeams) # Top_k_idx2D => (rows,cols) and rows corresponds to beam_idx value of sample_ids and Probs
+
                 for id in range(NumBeams):
-                    tmp_id=Top_k_idx2D[id]
-                    sample_ids[id]=tmp_2step_samples_ids[tmp_id[0]][tmp_id[1]]
-                    Probs[id]=Top_k_Probs[id]
+                    sample_ids[id]=tmp_2step_samples_ids[int(Top_k_idx0[:,id].item())][int(Top_k_idx1[:,id].item())]
                     inputs[id] = self.embed(sample_ids[id][-1])
                     inputs[id] = inputs[id].unsqueeze(1)
 
-        sampled_id_list = [torch.stack(sample_ids[beam_idx], 1) for beam_idx in range(NumBeams)]                # sampled_ids: [(batch_size, max_seq_length) x NumBeams]
+        sampled_id_list = torch.Tensor(sample_ids)
         return sampled_id_list
 
 class BAN_HSC(nn.Module):
@@ -163,7 +165,7 @@ class BAN_HSC(nn.Module):
         self.encoder=encoder
         self.decoder=decoder
 
-    def generate_caption(self, v, b, q, x_method, s_method='BestOne'):
+    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -205,7 +207,7 @@ class BAN_HSC(nn.Module):
             atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
 
         #pdb.set_trace()
-        encoded_features=self.encoder(atted_v_feats)
+        encoded_features=self.encoder(atted_v_feats,t_method)
         if(s_method == 'BestOne'):
             Generated_Captions=self.decoder.sample(encoded_features)
         elif(s_method == 'BeamSearch'):
@@ -230,8 +232,15 @@ class BAN_HSC(nn.Module):
 
 def max_k(inputTensor,dim_=0,k=1):
     _, idx_att = torch.sort(inputTensor, dim=dim_, descending=True)
-    idx_att = idx_att.squeeze()[:k]
-    outputTensor = inputTensor[:, idx_att, :]
+
+    if(dim_ != 0):
+        idx_att=torch.transpose(idx_att,0,dim_)
+        inputTensor=torch.transpose(inputTensor,0,dim_)
+    idx_att=idx_att[:k]
+    outputTensor = inputTensor[idx_att.squeeze()]
+    if (dim_ != 0):
+        idx_att = torch.transpose(idx_att, 0, dim_)
+        outputTensor = torch.transpose(outputTensor, 0, dim_)
     return outputTensor, idx_att
 
 def append_elemwise(list1, list2):
@@ -243,12 +252,24 @@ def append_elemwise(list1, list2):
     return list1
 
 def max2D_k(list2D,k=1):
-    num_cols=len(list2D[0])
-    tensor2D=torch.Tensor(list2D).view(-1,1).squeeze()
-    values,idx=torch.sort(tensor2D,descending=True)
-    values=values[:k]
-    idx=idx[:k]
-    idx2D=[]
-    for i in range(k):
-        idx2D.append(divmod(idx[i].item(),num_cols))
-    return values, idx2D
+    num_cols=list2D[0].size(1)
+    tensor2D=torch.transpose(torch.cat(list2D,2),1,2)
+    num_batches=tensor2D.size(0)
+    value_list=[]
+    idx0_list=[]
+    idx1_list=[]
+    for batch_idx in range(num_batches):
+        tensor2D_tmp=tensor2D[batch_idx].reshape(-1,1).squeeze()
+        values,idx=torch.sort(tensor2D_tmp,descending=True)
+        values=values[:k]
+        idx=idx[:k]
+        idx0=[]
+        idx1=[]
+        for i in range(k):
+            tmp_idx=divmod(idx[i].item(),num_cols)
+            idx0.append(tmp_idx[0])
+            idx1.append(tmp_idx[1])
+        value_list.append(values.unsqueeze(0))
+        idx0_list.append(torch.Tensor(idx0).unsqueeze(0))
+        idx1_list.append(torch.Tensor(idx1).unsqueeze(0))
+    return torch.cat(value_list,0), torch.cat(idx0_list,0), torch.cat(idx1_list,0)

@@ -90,7 +90,7 @@ def showPlot(points):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
-def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc,x_method, t_method, s_method_):
+def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc,x_method_, t_method_, s_method_):
     N = len(dataloader.dataset)
     M = dataloader.dataset.num_ans_candidates
     pred = torch.FloatTensor(N, M).zero_()
@@ -106,7 +106,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
-            generated_captions, logits, att = caption_generator.generate_caption(v, b, q, x_method, s_method=s_method_)
+            generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
 
             pred[idx:idx + batch_size, :].copy_(logits.data)
             qIds[idx:idx + batch_size].copy_(i)
@@ -122,10 +122,10 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
                     caption = [vocab.idx2word[generated_captions[idx][w_idx].item()] for w_idx in
                                range(generated_captions.size()[1])]
                     captions_list.append(caption)
-                elif (s_method_ == ' BeamSearch'):
-                    for generated_caption in generated_captions:
-                        caption = [vocab.idx2word[generated_caption[idx][w_idx].item()] for w_idx in
-                                   range(generated_caption.size()[1])]
+                elif (s_method_ == 'BeamSearch'):
+                    for tmp_idx in range(generated_captions.size(0)):
+                        caption = [vocab.idx2word[generated_captions[tmp_idx][w_idx].item()] for w_idx in
+                                   range(generated_captions.size()[1])]
                         captions_list.append(caption)
 
                 answer_list.append(get_answer(logits.data[idx], dataloader))
@@ -135,10 +135,10 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
         #print(captions_list[0])
         if (s_method_ == 'BestOne'):
             tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], display=False)
-        elif (s_method_ == ' BeamSearch'):
+        elif (s_method_ == 'BeamSearch'):
             tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
                                     captions_list[:len(generated_captions)], display=False, NumBeams=len(generated_captions))
-        plt.savefig(os.path.join(save_fig_loc,t_method, x_method, s_method_, '{}.png'.format(i.item())))
+        plt.savefig(os.path.join(save_fig_loc,t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
         plt.close(tmp_fig)
 
     bar.update(idx)
@@ -166,7 +166,7 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
     Answer='Answer : {}'.format(output_answer)
     fig.text(0.2, 0.90, Answer, ha='center', va='center',fontsize=20)
 
-    #pdb.set_trace()
+
     x_caption = ''
     for num_sen in range(NumBeams):
         if(NumBeams > 1):
@@ -334,8 +334,7 @@ if __name__ == '__main__':
 
         print('loading hsc datas %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
-        pdb.set_trace()
-        #pdb.set_trace()
+
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
 
