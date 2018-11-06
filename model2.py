@@ -37,9 +37,9 @@ class Encoder_HieStackedCorr(nn.Module):
     def forward(self, Vmat, t_method='mean'):
         assert t_method in ['mean', 'uncorr']
         if(t_method == 'mean'):
-            features = self.bn(self.linear(self.MeanVmat(Vmat)))
+            features = self.bn(self.linear(self.SumVmat(Vmat)))
         elif(t_method == 'uncorr'):
-            features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat(Vmat))))
+            features = self.bn(self.linear(self.SumVmat(self.UnCorrVmat(Vmat))))
 
         return features
 
@@ -220,11 +220,11 @@ class BAN_HSC(nn.Module):
             atted_v_feats = att_for_v * v  # attended visual features
             atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
         elif x_method == 'weight_only':
-            atted_v_feats = (num_objects*att_for_v) * v  # attended visual features
+            atted_v_feats = att_for_v * v  # attended visual features
         elif x_method == 'NoAtt':
             atted_v_feats=v
 
-        #pdb.set_trace()
+        pdb.set_trace()
         encoded_features=self.encoder(atted_v_feats,t_method)
         if(s_method == 'BestOne'):
             Generated_Captions=self.decoder.sample(encoded_features)

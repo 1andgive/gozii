@@ -120,12 +120,13 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
                 question_list.append(get_question(q.data[idx],dataloader))
                 if (s_method_ == 'BestOne'):
                     caption = [vocab.idx2word[generated_captions[idx][w_idx].item()] for w_idx in
-                               range(generated_captions.size()[1])]
+                               range(generated_captions.size(1))]
                     captions_list.append(caption)
                 elif (s_method_ == 'BeamSearch'):
                     for tmp_idx in range(generated_captions.size(0)):
+                        #pdb.set_trace()
                         caption = [vocab.idx2word[generated_captions[tmp_idx][w_idx].item()] for w_idx in
-                                   range(generated_captions.size()[1])]
+                                   range(generated_captions.size(1))]
                         captions_list.append(caption)
 
                 answer_list.append(get_answer(logits.data[idx], dataloader))
