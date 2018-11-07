@@ -21,7 +21,7 @@ from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
 
-from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+from model3 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
 
 import pdb
 

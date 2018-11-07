@@ -72,8 +72,8 @@ class Encoder_HieStackedCorr(nn.Module):
 
     def UnCorrVmat(self,Vmat):
         #pdb.set_trace()
-        RightUnCorr=self.act_relu(self.linear_U1(Vmat))
-        LeftUnCorr = self.act_relu(self.linear_U2(Vmat))
+        RightUnCorr=self.act_tanh(self.linear_U1(Vmat))
+        LeftUnCorr = self.act_tanh(self.linear_U2(Vmat))
         UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
 
         return torch.matmul(UnCorr,Vmat)
@@ -235,7 +235,7 @@ class BAN_HSC(nn.Module):
         return Generated_Captions, logits, att
 
     def forward(self, v, b, q, labels):
-        _, att=self.BAN(v,b,q,None)
+        logits_BAN, att=self.BAN(v,b,q,None)
         att_final = att[:, -1, :, :]
         # 원래는 q_net(q)와 v_net(v)가 Att matrix의 양 끝에 Matrix-Multiplication 된다.
         att_for_v = torch.sum(att_final,
@@ -247,6 +247,7 @@ class BAN_HSC(nn.Module):
         encoded_features=self.encoder(atted_v_feats)
 
         return True
+
 
 
 def max_k(inputTensor,dim_=0,k=1):
