@@ -21,7 +21,7 @@ from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
 
-from model3 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+from model4 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
 
 import pdb
 
@@ -57,6 +57,7 @@ def parse_args():
     parser.add_argument('--x_method', type=str, default='sum')
     parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--s_method', type=str, default='BestOne')
+    parser.add_argument('--HSC_model', type=int, default=1)
     args = parser.parse_args()
     return args
 
@@ -292,6 +293,16 @@ if __name__ == '__main__':
                   (name + '2014' if 'test' != name[:4] else name))
     questions = sorted(json.load(open(question_path))['questions'],
                        key=lambda x: x['question_id'])
+
+    if(args.HSC_model == 1):
+        from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+    elif(args.HSC_model == 2):
+        from model2 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+    elif(args.HSC_model==3):
+        from model3 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+    elif(args.HSC_model==4):
+        from model4 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+
 
     Dict_qid2vid = {}
     Dict_qid2ques={}

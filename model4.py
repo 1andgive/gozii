@@ -10,6 +10,7 @@ from torch.nn.utils.weight_norm import weight_norm
 # model2 = probability, relu
 # model3 = expectation, tanh
 
+
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
         """Load the pretrained ResNet-152 and replace top fc layer."""
@@ -39,6 +40,7 @@ class Encoder_HieStackedCorr(nn.Module):
         self.linear_U2=weight_norm(nn.Linear(vdim,LRdim))
         self.act_relu=nn.ReLU()
         self.act_tanh=nn.Tanh()
+        self.act_Lrelu=nn.LeakyReLU()
     def forward(self, Vmat, t_method='mean'):
         assert t_method in ['mean', 'uncorr']
         if(t_method == 'mean'):
@@ -76,8 +78,8 @@ class Encoder_HieStackedCorr(nn.Module):
 
     def UnCorrVmat(self,Vmat):
         #pdb.set_trace()
-        RightUnCorr=self.act_tanh(self.linear_U1(Vmat))
-        LeftUnCorr = self.act_tanh(self.linear_U2(Vmat))
+        RightUnCorr=self.act_Lrelu(self.linear_U1(Vmat))
+        LeftUnCorr = self.act_Lrelu(self.linear_U2(Vmat))
         UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
 
         return torch.matmul(UnCorr,Vmat)
@@ -239,7 +241,7 @@ class BAN_HSC(nn.Module):
         return Generated_Captions, logits, att
 
     def forward(self, v, b, q, labels):
-        logits_BAN, att=self.BAN(v,b,q,None)
+        _, att=self.BAN(v,b,q,None)
         att_final = att[:, -1, :, :]
         # 원래는 q_net(q)와 v_net(v)가 Att matrix의 양 끝에 Matrix-Multiplication 된다.
         att_for_v = torch.sum(att_final,

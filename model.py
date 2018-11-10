@@ -6,6 +6,11 @@ import pdb
 import numpy as np
 from torch.nn.utils.weight_norm import weight_norm
 
+# model = expectation, relu
+# model2 = probability, relu
+# model3 = expectation, tanh
+
+
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
         """Load the pretrained ResNet-152 and replace top fc layer."""
@@ -152,7 +157,7 @@ class DecoderRNN(nn.Module):
                 else:
                     tmp_2step_samples_ids[beam_idx]=[sample_ids[beam_idx].copy() for tmp_idx in range(NumBeams)]
                     [tmp_2step_samples_ids[beam_idx][tmp_idx].append(predicted[:,tmp_idx]) for tmp_idx in range(NumBeams)]
-                    tmp_2step_Probs[beam_idx] = (Probs+ tmp_probs).unsqueeze(2) #Probs should be cumulative probability
+                    tmp_2step_Probs[beam_idx] = (Probs* tmp_probs).unsqueeze(2) #Probs should be cumulative probability
 
                 # sample_ids[beam_idx].append(predicted[beam_idx])
                 # inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)

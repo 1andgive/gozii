@@ -6,7 +6,7 @@ import os
 import pickle
 from data_loader import BottomUp_get_loader
 from build_vocab import Vocabulary
-from model import Encoder_HieStackedCorr, DecoderRNN
+from model4 import Encoder_HieStackedCorr, DecoderRNN
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 import pdb
@@ -45,7 +45,7 @@ def main(args):
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
 
     # Build the models
-    encoder = Encoder_HieStackedCorr(args.embed_size,2048,LRdim=args.LRdim).to(device)
+    encoder = Encoder_HieStackedCorr(args.embed_size,2048).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
 
 
@@ -127,7 +127,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--t_method', type=str, default='mean')
-    parser.add_argument('--LRdim', type=int, default=64)
     args = parser.parse_args()
     print(args)
     main(args)

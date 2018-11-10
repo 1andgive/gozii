@@ -6,6 +6,10 @@ import pdb
 import numpy as np
 from torch.nn.utils.weight_norm import weight_norm
 
+# model = expectation, relu
+# model2 = probability, relu
+# model3 = expectation, tanh
+
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
         """Load the pretrained ResNet-152 and replace top fc layer."""
