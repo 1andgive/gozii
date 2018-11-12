@@ -21,7 +21,6 @@ from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
 
-from model4 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
 
 import pdb
 
@@ -58,6 +57,7 @@ def parse_args():
     parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--s_method', type=str, default='BestOne')
     parser.add_argument('--HSC_model', type=int, default=1)
+    parser.add_argument('--LRdim', type=int, default=64)
     args = parser.parse_args()
     return args
 
@@ -296,12 +296,17 @@ if __name__ == '__main__':
 
     if(args.HSC_model == 1):
         from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-    elif(args.HSC_model == 2):
+    elif (args.HSC_model == 2):
         from model2 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-    elif(args.HSC_model==3):
+
+        pdb.set_trace()
+    elif (args.HSC_model == 3):
         from model3 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-    elif(args.HSC_model==4):
+
+        pdb.set_trace()
+    elif (args.HSC_model == 4):
         from model4 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+
 
 
     Dict_qid2vid = {}
@@ -327,7 +332,7 @@ if __name__ == '__main__':
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
 
-    encoder = Encoder_HieStackedCorr(args.embed_size, 2048).to(device)
+    encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
 
     def process(args, model, eval_loader,Dict_qid2vid):

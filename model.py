@@ -184,8 +184,36 @@ class BAN_HSC(nn.Module):
         self.BAN=BAN
         self.encoder=encoder
         self.decoder=decoder
-
     def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
+
+        assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
+        assert s_method in ['BestOne', 'BeamSearch']
+
+        encoded_features, logits, att=self.forward( v, b, q , t_method=t_method, x_method=x_method, s_method=s_method)
+
+        if(s_method == 'BestOne'):
+            Generated_Captions=self.decoder.sample(encoded_features)
+        elif(s_method == 'BeamSearch'):
+            Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
+
+        return Generated_Captions, logits, att
+
+    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
+
+        assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
+        assert s_method in ['BestOne', 'BeamSearch']
+
+        encoded_features, logits, att=self.forward( v, b, q , t_method=t_method, x_method=x_method, s_method=s_method)
+
+        if(s_method == 'BestOne'):
+            Generated_Captions=self.decoder.sample(encoded_features)
+        elif(s_method == 'BeamSearch'):
+            Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
+
+        return Generated_Captions, logits, att, encoded_features
+
+
+    def forward(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -232,26 +260,27 @@ class BAN_HSC(nn.Module):
 
         #pdb.set_trace()
         encoded_features=self.encoder(atted_v_feats,t_method)
-        if(s_method == 'BestOne'):
-            Generated_Captions=self.decoder.sample(encoded_features)
-        elif(s_method == 'BeamSearch'):
-            Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 
-        return Generated_Captions, logits, att
+        return encoded_features, logits, att
 
-    def forward(self, v, b, q, labels):
-        _, att=self.BAN(v,b,q,None)
-        att_final = att[:, -1, :, :]
-        # 원래는 q_net(q)와 v_net(v)가 Att matrix의 양 끝에 Matrix-Multiplication 된다.
-        att_for_v = torch.sum(att_final,
-                               2)  # average over question words (phrase-level inspection, each index for q in final stage does not represent word anymore (it rather represents something semantically more meaningful)
-        # att_for_v dimension => [b, v_feature_dim, 1]
+class CaptionEncoder(nn.Module):
+    def __init__(self,embed_size, hidden_size, embed, num_class, num_layers=1):
+        super(CaptionEncoder,self).__init__()
+        self.hidden_size=hidden_size
+        self.embed = embed # embedding module
+        self.lstm_=nn.LSTM(embed_size,hidden_size,num_layers,batch_first=True)
+        self.linear = nn.Linear(hidden_size,num_class)
+        self.softmax=nn.LogSoftmax(dim=1)
 
-        atted_v_feats = att_for_v * v  # attended visual features
+    def forward(self, input_X, states=None):
+        """Decode image feature vectors and generates captions."""
+        embeddings = self.embed(input_X)
 
-        encoded_features=self.encoder(atted_v_feats)
+        _, final_hiddens = self.lstm(embeddings, states) # final_hiddens = (h_n, c_n)
+        pdb.set_trace()
+        outputs = self.softmax(self.linear(final_hiddens[0]))
+        return outputs
 
-        return True
 
 
 def max_k(inputTensor,dim_=0,k=1):
