@@ -13,7 +13,8 @@ from torch.autograd import Variable
 import numpy as np
 import pickle
 from build_vocab import Vocabulary
-
+from model_explain import Sen_Sim
+from nltk.tokenize import word_tokenize
 
 sys.path.append('D:\\VQA\\BAN')
 
@@ -116,11 +117,11 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
             question_list=[]
             answer_list=[]
             captions_list=[]
-            for idx in range(len(i)):
-                img_list.append(get_image(i[idx].item(),Dict_qid2vid))
-                question_list.append(get_question(q.data[idx],dataloader))
+            for idx2 in range(len(i)):
+                img_list.append(get_image(i[idx2].item(),Dict_qid2vid))
+                question_list.append(get_question(q.data[idx2],dataloader))
                 if (s_method_ == 'BestOne'):
-                    caption = [vocab.idx2word[generated_captions[idx][w_idx].item()] for w_idx in
+                    caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
                                range(generated_captions.size(1))]
                     captions_list.append(caption)
                 elif (s_method_ == 'BeamSearch'):
@@ -130,16 +131,50 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
                                    range(generated_captions.size(1))]
                         captions_list.append(caption)
 
-                answer_list.append(get_answer(logits.data[idx], dataloader))
+                answer_list.append(get_answer(logits.data[idx2], dataloader))
 
-        #print(question_list[0])
-        #print(answer_list[0])
-        #print(captions_list[0])
+        caption_=captions_list[0]
+        x_caption=[]
+        if caption_[0] == '<start>':
+            for idx3 in caption_[1:]:
+                if idx3 != '<end>':
+                    x_caption.append(idx3)
+                else:
+                    break
+
+        Wc_inQ_idx=[]
+        Wa_inQ_idx = []
+        dictionary=dataloader.dataset.dictionary
+        W_Emb=caption_generator.BAN.module.w_emb
+        for Wc in x_caption:
+            if Wc in dictionary.word2idx.keys():
+                Wc_inQ_idx.append(dictionary.word2idx[Wc])
+
+
+        for Wa in word_tokenize(answer_list[0]):
+            if Wa in dictionary.word2idx.keys():
+                Wa_inQ_idx.append(dictionary.word2idx[Wa])
+
+        Wc = torch.Tensor(Wc_inQ_idx)
+
+        if(Wc.nelement()==0):
+            RelScore=0.0
+        else:
+            Wc=Wc.unsqueeze(0)
+            #Wq=q
+            Wa=torch.Tensor(Wa_inQ_idx)
+            Wa = Wa.unsqueeze(0)
+            Wc_Emb = W_Emb(Wc.type(torch.cuda.LongTensor))
+            Wq_Emb = W_Emb(q)
+            Wa_Emb = W_Emb(Wa.type(torch.cuda.LongTensor))
+            RelScore=0.5*(Sen_Sim(Wq_Emb,Wc_Emb)+Sen_Sim(Wa_Emb,Wc_Emb))
+            RelScore=RelScore.item()
+
         if (s_method_ == 'BestOne'):
-            tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], display=False)
+            tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], RelScore,display=False)
         elif (s_method_ == 'BeamSearch'):
             tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
-                                    captions_list[:len(generated_captions)], display=False, NumBeams=len(generated_captions))
+                                    captions_list[:len(generated_captions)], RelScore, display=False, NumBeams=len(generated_captions))
         plt.savefig(os.path.join(save_fig_loc,t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
         plt.close(tmp_fig)
 
@@ -159,7 +194,7 @@ def make_json(logits, qIds, dataloader):
 
 #######################################################################################
 
-def showAttention(input_question, image, output_answer, attentions,bbox, explains, display=True, NumBeams=1):
+def showAttention(input_question, image, output_answer, attentions,bbox, explains, RelScore, display=True, NumBeams=1):
     # Set up figure with colorbar
     fig = plt.figure(figsize=(25,19))
     #pdb.set_trace()
@@ -167,6 +202,9 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
 
     Answer='Answer : {}'.format(output_answer)
     fig.text(0.2, 0.90, Answer, ha='center', va='center',fontsize=20)
+
+    Answer = 'RelScore : {}'.format(round(RelScore,4))
+    fig.text(0.8, 0.95, Answer, ha='center', va='center', fontsize=20)
 
 
     x_caption = ''
@@ -331,6 +369,7 @@ if __name__ == '__main__':
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
+
 
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
