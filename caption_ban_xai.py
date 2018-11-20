@@ -14,7 +14,7 @@ import numpy as np
 import pickle
 from build_vocab import Vocabulary
 from model_explain import Sen_Sim
-from nltk.tokenize import word_tokenize
+from model_explain import Relev_Check
 
 sys.path.append('D:\\VQA\\BAN')
 
@@ -92,7 +92,7 @@ def showPlot(points):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
-def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc,x_method_, t_method_, s_method_):
+def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_loc,x_method_, t_method_, s_method_):
     N = len(dataloader.dataset)
     M = dataloader.dataset.num_ans_candidates
     pred = torch.FloatTensor(N, M).zero_()
@@ -110,8 +110,6 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
 
             generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
 
-            pred[idx:idx + batch_size, :].copy_(logits.data)
-            qIds[idx:idx + batch_size].copy_(i)
             idx += batch_size
             img_list=[]
             question_list=[]
@@ -134,44 +132,10 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
                 answer_list.append(get_answer(logits.data[idx2], dataloader))
 
         caption_=captions_list[0]
-        x_caption=[]
-        if caption_[0] == '<start>':
-            for idx3 in caption_[1:]:
-                if idx3 != '<end>':
-                    x_caption.append(idx3)
-                else:
-                    break
+        RelScore=Relev_Check(captions_list[0], q, answer_list[0], caption_generator.BAN.module.w_emb, dataloader.dataset.dictionary)
 
-        Wc_inQ_idx=[]
-        Wa_inQ_idx = []
-        dictionary=dataloader.dataset.dictionary
-        W_Emb=caption_generator.BAN.module.w_emb
-        for Wc in x_caption:
-            if Wc in dictionary.word2idx.keys():
-                Wc_inQ_idx.append(dictionary.word2idx[Wc])
-
-
-        for Wa in word_tokenize(answer_list[0]):
-            if Wa in dictionary.word2idx.keys():
-                Wa_inQ_idx.append(dictionary.word2idx[Wa])
-
-        Wc = torch.Tensor(Wc_inQ_idx)
-        Wa = torch.Tensor(Wa_inQ_idx)
-        if(Wc.nelement()==0):
-            RelScore=0.0
-        elif(Wa.nelement() == 0):
-            #RelScore=0.0
+        if RelScore is None:
             continue
-        else:
-            Wc=Wc.unsqueeze(0)
-            #Wq=q
-
-            Wa = Wa.unsqueeze(0)
-            Wc_Emb = W_Emb(Wc.type(torch.cuda.LongTensor))
-            Wq_Emb = W_Emb(q)
-            Wa_Emb = W_Emb(Wa.type(torch.cuda.LongTensor))
-            RelScore=0.5*(Sen_Sim(Wq_Emb,Wc_Emb)+Sen_Sim(Wa_Emb,Wc_Emb))
-            RelScore=RelScore.item()
 
         if (s_method_ == 'BestOne'):
             tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], RelScore,display=False)
@@ -182,7 +146,6 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
         plt.close(tmp_fig)
 
     bar.update(idx)
-    return pred, qIds
 
 
 def make_json(logits, qIds, dataloader):
@@ -401,7 +364,7 @@ if __name__ == '__main__':
 
         if not os.path.exists(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method)):
             os.makedirs(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method))
-        logits, qIds = check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab,args.save_fig_loc,args.x_method, args.t_method, args.s_method)
+        check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab,args.save_fig_loc,args.x_method, args.t_method, args.s_method)
 
         ################################################################################################################
 

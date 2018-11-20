@@ -124,6 +124,7 @@ class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20):
         """Set the hyper-parameters and build the layers."""
         super(DecoderRNN, self).__init__()
+        self.vocab_size=vocab_size
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
@@ -297,22 +298,7 @@ class BAN_HSC(nn.Module):
 
         return encoded_features, logits, att
 
-class CaptionEncoder(nn.Module):
-    def __init__(self,embed_size, hidden_size, embed, num_class, num_layers=1):
-        super(CaptionEncoder,self).__init__()
-        self.hidden_size=hidden_size
-        self.embed = embed # embedding module
-        self.lstm_=nn.LSTM(embed_size,hidden_size,num_layers,batch_first=True)
-        self.linear = nn.Linear(hidden_size,num_class)
-        self.softmax=nn.LogSoftmax(dim=1)
 
-    def forward(self, input_X, states=None):
-        embeddings = self.embed(input_X)
-
-        _, final_hiddens = self.lstm(embeddings, states) # final_hiddens = (h_n, c_n)
-        pdb.set_trace()
-        outputs = self.softmax(self.linear(final_hiddens[0]))
-        return outputs
 
 
 

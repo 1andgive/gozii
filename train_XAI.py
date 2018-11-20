@@ -13,7 +13,8 @@ from torch.autograd import Variable
 import numpy as np
 import pickle
 from build_vocab import Vocabulary
-from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC,CaptionEncoder
+from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+from model_explain import GuideVfeat, CaptionEncoder, Relev_Check, UNCorrXAI
 
 sys.path.append('D:\\VQA\\BAN')
 
@@ -53,7 +54,7 @@ def parse_args():
     parser.add_argument('--hidden_size_BAN', type=int, default=1280, help='dimension of GRU hidden states in BAN')
     parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
-    parser.add_argument('--save_fig_loc', type=str, default='saved_figs/')
+    parser.add_argument('--xai_model_loc', type=str, default='model_XAI/')
     parser.add_argument('--x_method', type=str, default='sum')
     parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--s_method', type=str, default='BestOne')
@@ -61,6 +62,7 @@ def parse_args():
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--log_step', type=int, default=20, help='step size for prining log info')
     parser.add_argument('--save_step', type=int, default=400, help='step size for saving trained models')
+    parser.add_argument('--model_num', type=int, default=1)
     args = parser.parse_args()
     return args
 
@@ -74,36 +76,33 @@ def get_question(q, dataloader):
 
 
 def get_answer(p, dataloader):
-    _m, idx = p.max(0)
+    _m, idx = p.max(1)
     label_from_vqa=torch.zeros(p.size())
     label_from_vqa[idx]=1
     return dataloader.dataset.label2ans[idx.item()], label_from_vqa
 
 
 
-def showPlot(points):
-    plt.figure()
-    fig, ax = plt.subplots()
-    # this locator puts ticks at regular intervals
-    loc = ticker.MultipleLocator(base=0.2)
-    ax.yaxis.set_major_locator(loc)
-    plt.plot(points)
 
-def train_XAI(caption_generator, caption_encoder, BilinearTransformer_, Discretize_, Loss_Rel, vqa_loader, x_method_, t_method_, s_method_, num_epoch, optimizer_, log_step, save_step):
+
+
+def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args):
     N = len(vqa_loader.dataset)
     M = vqa_loader.dataset.num_ans_candidates
     pred = torch.FloatTensor(N, M).zero_()
     qIds = torch.IntTensor(N).zero_()
     idx = 0
-    bar = progressbar.ProgressBar(maxval=N * num_epoch).start()
+    bar = progressbar.ProgressBar(maxval=N * args.num_epoch).start()
     total_step = len(vqa_loader)
 
-    if not os.path.exists(os.path.join('model_xai', t_method_, x_method_, s_method_)):
-        os.makedirs(os.path.join('model_xai',  t_method_, x_method_, s_method_))
+    if not os.path.exists(os.path.join('model_xai', args.t_method, args.x_method, args.s_method)):
+        os.makedirs(os.path.join('model_xai',  args.t_method, args.x_method, args.s_method))
 
-    save_path = os.path.join('model_xai',  t_method_, x_method_, s_method_)
+    save_path = os.path.join('model_xai',  args.t_method, args.x_method, args.s_method)
+    is_Init = True
 
-    for epoch in range(num_epoch):
+    for epoch in range(args.num_epoch):
+
         for v, b, q, i in iter(vqa_loader):
             bar.update(idx)
             batch_size = v.size(0)
@@ -113,48 +112,29 @@ def train_XAI(caption_generator, caption_encoder, BilinearTransformer_, Discreti
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
 
-                generated_captions, logits, att, context_vector = caption_generator.generate_caption_n_context(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
+                if(epoch % 2 == 1):
+                    logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
+                else:
+                    logits, outputs=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
 
-                pred[idx:idx + batch_size, :].copy_(logits.data)
-                qIds[idx:idx + batch_size].copy_(i)
                 idx += batch_size
-                question_list=[]
-                answer_list=[]
-                captions_list=[]
-                label_list=[]
-                for idx in range(len(i)):
-                    question_list.append(get_question(q.data[idx],vqa_loader))
-                    if (s_method_ == 'BestOne'):
-                        caption = [generated_captions[idx][w_idx].item() for w_idx in
-                                   range(generated_captions.size(1))]
-                        captions_list.append(caption)
-                    answer_word,label_from_vqa=get_answer(logits.data[idx], vqa_loader)
-                    answer_list.append(answer_word)
-                    label_list.append(label_from_vqa)
-                label_from_vqa=torch.stack(label_list,0)
-                input_X=torch.stack(captions_list,0)
+                answer_word, label_from_vqa = get_answer(logits.data, vqa_loader)
 
-                input_Xnew=Discretize_(BilinearTransformer_(input_X,context_vector))
+                Loss = nn.functional.binary_cross_entropy_with_logits(outputs,label_from_vqa)
 
-                logits = caption_encoder(input_Xnew)
-                Loss_Discriminative = nn.functional.binary_cross_entropy_with_logits(logits,label_from_vqa)
-                Loss_Relevance =Loss_Rel(input_X,input_Xnew)
-                Loss=Loss_Discriminative+Loss_Relevance
-
-                caption_encoder.zero_grad()
-                BilinearTransformer_.zero_grad()
-                Discretize_.zero_grad()
+                uncorr_xai.CaptionEncoder.zero_grad()
+                uncorr_xai.Guide.zero_grad()
 
                 Loss.backward()
-                optimizer_.step()
+                optimizer.step()
 
                 # Print log info
-                if i % log_step == 0:
+                if i % args.log_step == 0:
                     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
-                          .format(epoch, num_epoch, i, total_step, Loss.item(), np.exp(Loss.item())))
+                          .format(epoch, args.num_epoch, i, total_step, Loss.item(), np.exp(Loss.item())))
 
                     # Save the model checkpoints
-                if (i + 1) % save_step == 0:
+                if (i + 1) % args.save_step == 0:
                     # pdb.set_trace()
                         model_path = os.path.join(
                             save_path, 'model-{}-{}.pth'.format(epoch + 1, i + 1))
@@ -163,11 +143,12 @@ def train_XAI(caption_generator, caption_encoder, BilinearTransformer_, Discreti
                     ####################################################################################################
                     # implement utils.save_xai_model
 
-                    utils.save_xai_model(save_path,  , epoch, optimizer_)
+                    #utils.save_xai_model(save_path,  , epoch, optimizer)
 
                     ####################################################################################################
 
         bar.update(idx)
+        is_Init = False
 
 
 
@@ -188,7 +169,11 @@ if __name__ == '__main__':
     Dict_qid2ques={}
     dictionary = Dictionary.load_from_file('codes/tools/data/dictionary.pkl')
 
-    # Visualization through eval_dataset
+    # Load COO-Caption vocabulary wrapper
+    with open(args.vocab_path, 'rb') as f:
+        vocab = pickle.load(f)
+
+    # train_dataset
 
     vqa_dset = VQAFeatureDataset(args.split, dictionary, adaptive=True)
 
@@ -207,22 +192,23 @@ if __name__ == '__main__':
     #train the encoder/decoder pair this time (fine-tuning stage for dual-loss)
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
-    caption_encoder=CaptionEncoder(args.embed_size, args.hidden_size_BAN, decoder.embed, vqa_dset.num_ans_candidates)
+
+
 
     ################################################################################################################
     # implement these in model.py
 
-    BilinearTransformer=
-    Descretize=
-    Loss_Rel=
+    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, decoder.embed, vqa_dset.num_ans_candidates)
+    guide=GuideVfeat(args.hidden_size_BAN, 2048)
+
 
     ################################################################################################################
 
-    params = list(CaptionEncoder.parameters()) + list(BilinearTransformer.parameters()) + list(Descretize.parameters())
+    params = list(CaptionEncoder.parameters()) + list(guide.parameters())
     # params = list(decoder.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
 
-    def process(args, model, vqa_loader):
+    def process(args, model, vqa_loader, optimizer):
         model_path = args.input + '/model%s.pth' % \
                      ('' if 0 > args.epoch else '_epoch%d' % args.epoch)
 
@@ -231,10 +217,10 @@ if __name__ == '__main__':
 
         if(args.t_method == 'mean'):
             model_hsc_path = os.path.join(
-                args.hsc_path + 'model-{}-400.pth'.format(args.hsc_epoch))
+                args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
         else:
             model_hsc_path = os.path.join(
-                args.hsc_path,args.t_method, 'model-{}-400.pth'.format(args.hsc_epoch))
+                args.hsc_path,args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
 
         print('loading hsc(attention caption) %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
@@ -251,17 +237,17 @@ if __name__ == '__main__':
         encoder.train(False)
         decoder.train(False)
 
-        caption_generator=BAN_HSC(model,encoder,decoder)
+        uncorr_xai = UNCorrXAI(model,encoder,decoder,caption_encoder,guide)
 
         ################################################################################################################
 
         #Concatenate Encoder-Decoder to model and check whether the model generates correct captions based on visual cues
 
-        if not os.path.exists(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method)):
-            os.makedirs(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method))
+        if not os.path.exists(os.path.join(args.xai_model_loc,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim), args.x_method,args.s_method)):
+            os.makedirs(os.path.join(args.xai_model_loc,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim),args.x_method,args.s_method))
 
 
-        train_XAI(caption_generator, caption_encoder, BilinearTransformer, Descretize, Loss_Rel, vqa_loader, args.x_method, args.t_method, args.s_method, args.epoch, optimizer, args.log_step, args.save_step)
+        train_XAI(uncorr_xai, vqa_loader, vocab, optimizer, args)
 
         ################################################################################################################
 
@@ -269,4 +255,4 @@ if __name__ == '__main__':
 
 
 
-    process(args, model, vqa_loader)
+    process(args, model, vqa_loader, optimizer)
