@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     ################################################################################################################
     # implement these in model.py
 
-    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, decoder.embed, vqa_dset.num_ans_candidates)
+    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, vqa_dset.num_ans_candidates)
     guide=GuideVfeat(args.hidden_size_BAN, 2048)
 
 

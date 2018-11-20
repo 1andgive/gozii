@@ -75,6 +75,7 @@ class CaptionEncoder(nn.Module):
     def __init__(self,embed_size, hidden_size, num_class, num_layers=1):
         super(CaptionEncoder,self).__init__()
         self.hidden_size=hidden_size
+        pdb.set_trace()
         self.lstm_=nn.LSTM(embed_size,hidden_size,num_layers,batch_first=True) # word embedding to hidden size mapping, hidden size == q_embedding size
         self.linear = nn.Linear(hidden_size,num_class)
         self.act_relu = nn.ReLU()
