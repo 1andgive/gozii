@@ -13,7 +13,7 @@ from torch.autograd import Variable
 import numpy as np
 import pickle
 from build_vocab import Vocabulary
-
+from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC,CaptionEncoder
 
 sys.path.append('D:\\VQA\\BAN')
 
@@ -183,19 +183,6 @@ if __name__ == '__main__':
                   (name + '2014' if 'test' != name[:4] else name))
     questions = sorted(json.load(open(question_path))['questions'],
                        key=lambda x: x['question_id'])
-
-    if(args.HSC_model == 1):
-        from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC,CaptionEncoder
-    elif (args.HSC_model == 2):
-        from model2 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC,CaptionEncoder
-
-        pdb.set_trace()
-    elif (args.HSC_model == 3):
-        from model3 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC,CaptionEncoder
-
-        pdb.set_trace()
-    elif (args.HSC_model == 4):
-        from model4 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC,CaptionEncoder
 
 
     Dict_qid2ques={}
