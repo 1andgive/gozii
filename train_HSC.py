@@ -62,8 +62,8 @@ def main(args):
     
     # Train the models
     total_step = len(data_loader)
-    if not os.path.exists(os.path.join(args.model_path,args.t_method)):
-        os.makedirs(os.path.join(args.model_path,args.t_method))
+    if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim))):
+        os.makedirs(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim)))
     for epoch in range(args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
@@ -78,7 +78,7 @@ def main(args):
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             
             # Forward, backward and optimize
-            features_encoded = encoder(features,t_method=args.t_method)
+            features_encoded = encoder(features,t_method=args.t_method,model_num=args.model_num)
 
             outputs = decoder(features_encoded, captions, lengths)
             loss = criterion(outputs, targets)
@@ -96,12 +96,13 @@ def main(args):
             # Save the model checkpoints
             if (i+1) % args.save_step == 0:
                 #pdb.set_trace()
-                if(args.t_method == 'mean'):
-                    model_path=os.path.join(
-                        args.model_path, 'model-{}-{}.pth'.format(epoch+1, i+1))
+                if (args.t_method == 'mean'):
+                    model_path = os.path.join(
+                        args.model_path, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-{}.pth'.format(epoch + 1, i + 1))
                 else:
                     model_path = os.path.join(
-                        args.model_path,args.t_method, 'model-{}-{}.pth'.format(epoch + 1, i + 1))
+                        args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim),
+                        'model-{}-{}.pth'.format(epoch + 1, i + 1))
 
                 utils.save_model(model_path,encoder,decoder,epoch,optimizer)
 
@@ -126,8 +127,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)
-    parser.add_argument('--t_method', type=str, default='mean')
+    parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--LRdim', type=int, default=64)
+    parser.add_argument('--model_num', type=int, default=1)
     args = parser.parse_args()
     print(args)
     main(args)

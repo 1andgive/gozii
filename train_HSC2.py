@@ -62,8 +62,8 @@ def main(args):
     
     # Train the models
     total_step = len(data_loader)
-    if not os.path.exists(os.path.join(args.model_path,args.t_method)):
-        os.makedirs(os.path.join(args.model_path,args.t_method))
+    if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}'.format(args.model_num))):
+        os.makedirs(os.path.join(args.model_path,args.t_method,'model{}'.format(args.model_num)))
     for epoch in range(args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
@@ -101,10 +101,10 @@ def main(args):
                 #pdb.set_trace()
                 if(args.t_method == 'mean'):
                     model_path=os.path.join(
-                        args.model_path, 'model-{}-{}.pth'.format(epoch+1, i+1))
+                        args.model_path,'model{}'.format(args.model_num), 'model-{}-{}.pth'.format(epoch+1, i+1))
                 else:
                     model_path = os.path.join(
-                        args.model_path,args.t_method, 'model-{}-{}.pth'.format(epoch + 1, i + 1))
+                        args.model_path,args.t_method,'model{}'.format(args.model_num),'model-{}-{}.pth'.format(epoch + 1, i + 1))
 
                 utils.save_model(model_path,encoder,decoder,epoch,optimizer)
 

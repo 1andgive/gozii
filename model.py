@@ -40,12 +40,31 @@ class Encoder_HieStackedCorr(nn.Module):
         self.linear_U2=weight_norm(nn.Linear(vdim,LRdim))
         self.act_relu=nn.ReLU()
         self.act_tanh=nn.Tanh()
-    def forward(self, Vmat, t_method='mean'):
+        self.act_Lrelu = nn.LeakyReLU()
+    def forward(self, Vmat, t_method='mean', model_num=1):
         assert t_method in ['mean', 'uncorr']
-        if(t_method == 'mean'):
-            features = self.bn(self.linear(self.MeanVmat(Vmat)))
-        elif(t_method == 'uncorr'):
-            features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat(Vmat))))
+        assert model_num in [1,2,3,4]
+
+        if(model_num==1):
+            if(t_method == 'mean'):
+                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+            elif(t_method == 'uncorr'):
+                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat(Vmat))))
+        elif(model_num==2):
+            if (t_method == 'mean'):
+                features = self.bn(self.linear(self.SumVmat(Vmat)))
+            elif (t_method == 'uncorr'):
+                features = self.bn(self.linear(self.SumVmat(self.UnCorrVmat(Vmat))))
+        elif(model_num==3):
+            if (t_method == 'mean'):
+                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+            elif (t_method == 'uncorr'):
+                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_tanh(Vmat))))
+        elif(model_num==4):
+            if (t_method == 'mean'):
+                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+            elif (t_method == 'uncorr'):
+                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_Lrelu(Vmat))))
 
         return features
 
@@ -83,6 +102,21 @@ class Encoder_HieStackedCorr(nn.Module):
 
         return torch.matmul(UnCorr,Vmat)
 
+    def UnCorrVmat_tanh(self,Vmat):
+        #pdb.set_trace()
+        RightUnCorr=self.act_tanh(self.linear_U1(Vmat))
+        LeftUnCorr = self.act_tanh(self.linear_U2(Vmat))
+        UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
+
+        return torch.matmul(UnCorr,Vmat)
+
+    def UnCorrVmat_Lrelu(self,Vmat):
+        #pdb.set_trace()
+        RightUnCorr=self.act_Lrelu(self.linear_U1(Vmat))
+        LeftUnCorr = self.act_Lrelu(self.linear_U2(Vmat))
+        UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
+
+        return torch.matmul(UnCorr,Vmat)
 
 
 
@@ -273,7 +307,6 @@ class CaptionEncoder(nn.Module):
         self.softmax=nn.LogSoftmax(dim=1)
 
     def forward(self, input_X, states=None):
-        """Decode image feature vectors and generates captions."""
         embeddings = self.embed(input_X)
 
         _, final_hiddens = self.lstm(embeddings, states) # final_hiddens = (h_n, c_n)

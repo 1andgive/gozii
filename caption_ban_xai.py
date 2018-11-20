@@ -21,7 +21,7 @@ sys.path.append('D:\\VQA\\BAN')
 from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
-
+from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
 
 import pdb
 
@@ -54,11 +54,11 @@ def parse_args():
     parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--save_fig_loc', type=str, default='saved_figs/')
-    parser.add_argument('--x_method', type=str, default='sum')
-    parser.add_argument('--t_method', type=str, default='mean')
-    parser.add_argument('--s_method', type=str, default='BestOne')
-    parser.add_argument('--HSC_model', type=int, default=1)
+    parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
+    parser.add_argument('--t_method', type=str, default='uncorr') # mean, uncorr
+    parser.add_argument('--s_method', type=str, default='BestOne') # BestOne, BeamSearch
     parser.add_argument('--LRdim', type=int, default=64)
+    parser.add_argument('--model_num', type=int, default=1)
     args = parser.parse_args()
     return args
 
@@ -156,13 +156,16 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid,vocab,save_fig_loc
                 Wa_inQ_idx.append(dictionary.word2idx[Wa])
 
         Wc = torch.Tensor(Wc_inQ_idx)
-
+        Wa = torch.Tensor(Wa_inQ_idx)
         if(Wc.nelement()==0):
             RelScore=0.0
+        elif(Wa.nelement() == 0):
+            #RelScore=0.0
+            continue
         else:
             Wc=Wc.unsqueeze(0)
             #Wq=q
-            Wa=torch.Tensor(Wa_inQ_idx)
+
             Wa = Wa.unsqueeze(0)
             Wc_Emb = W_Emb(Wc.type(torch.cuda.LongTensor))
             Wq_Emb = W_Emb(q)
@@ -332,19 +335,6 @@ if __name__ == '__main__':
     questions = sorted(json.load(open(question_path))['questions'],
                        key=lambda x: x['question_id'])
 
-    if(args.HSC_model == 1):
-        from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-    elif (args.HSC_model == 2):
-        from model2 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-
-        pdb.set_trace()
-    elif (args.HSC_model == 3):
-        from model3 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-
-        pdb.set_trace()
-    elif (args.HSC_model == 4):
-        from model4 import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-
 
 
     Dict_qid2vid = {}
@@ -383,10 +373,10 @@ if __name__ == '__main__':
 
         if(args.t_method == 'mean'):
             model_hsc_path = os.path.join(
-                args.hsc_path + 'model-{}-400.pth'.format(args.hsc_epoch))
+                args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
         else:
             model_hsc_path = os.path.join(
-                args.hsc_path,args.t_method, 'model-{}-400.pth'.format(args.hsc_epoch))
+                args.hsc_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
 
         print('loading hsc datas %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
