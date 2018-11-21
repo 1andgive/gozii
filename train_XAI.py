@@ -14,14 +14,15 @@ import numpy as np
 import pickle
 from build_vocab import Vocabulary
 from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-from model_explain import GuideVfeat, CaptionEncoder, Relev_Check, UNCorrXAI
+from model_explain import GuideVfeat, CaptionEncoder, Relev_Check_by_IDX, UNCorrXAI
+from nltk.tokenize import word_tokenize
 
 sys.path.append('D:\\VQA\\BAN')
 
 from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
-
+import utils_hsc as utils_save
 
 import pdb
 
@@ -55,14 +56,16 @@ def parse_args():
     parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--xai_model_loc', type=str, default='model_XAI/')
-    parser.add_argument('--x_method', type=str, default='sum')
-    parser.add_argument('--t_method', type=str, default='mean')
+    parser.add_argument('--x_method', type=str, default='weight_only')
+    parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--s_method', type=str, default='BestOne')
     parser.add_argument('--HSC_model', type=int, default=1)
+    parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--LRdim', type=int, default=64)
-    parser.add_argument('--log_step', type=int, default=20, help='step size for prining log info')
+    parser.add_argument('--log_step', type=int, default=200, help='step size for prining log info')
     parser.add_argument('--save_step', type=int, default=400, help='step size for saving trained models')
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--num_epoch', type=int, default=13)
     args = parser.parse_args()
     return args
 
@@ -76,17 +79,18 @@ def get_question(q, dataloader):
 
 
 def get_answer(p, dataloader):
-    _m, idx = p.max(1)
-    label_from_vqa=torch.zeros(p.size())
-    label_from_vqa[idx]=1
-    return dataloader.dataset.label2ans[idx.item()], label_from_vqa
+    _m, idx = torch.max(p,1)
+    label_from_vqa=torch.cuda.LongTensor(p.size()).fill_(0)
+    for i in range(p.size(0)):
+        label_from_vqa[i,idx[i]]=1
+    return idx, label_from_vqa
 
 
 
 
 
 
-def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args):
+def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_Q):
     N = len(vqa_loader.dataset)
     M = vqa_loader.dataset.num_ans_candidates
     pred = torch.FloatTensor(N, M).zero_()
@@ -94,6 +98,9 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args):
     idx = 0
     bar = progressbar.ProgressBar(maxval=N * args.num_epoch).start()
     total_step = len(vqa_loader)
+    criterion=nn.CrossEntropyLoss()
+
+
 
     if not os.path.exists(os.path.join('model_xai', args.t_method, args.x_method, args.s_method)):
         os.makedirs(os.path.join('model_xai',  args.t_method, args.x_method, args.s_method))
@@ -103,52 +110,67 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args):
 
     for epoch in range(args.num_epoch):
 
-        for v, b, q, i in iter(vqa_loader):
+        for i, (v, b, q, a_)in enumerate(vqa_loader):
             bar.update(idx)
             batch_size = v.size(0)
             q = q.type(torch.LongTensor)
-            with torch.no_grad():
-                v = Variable(v).cuda()
-                b = Variable(b).cuda()
-                q = Variable(q).cuda()
 
-                if(epoch % 2 == 1):
-                    logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
-                else:
-                    logits, outputs=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
+            v = Variable(v).cuda()
+            b = Variable(b).cuda()
+            q = Variable(q).cuda()
 
-                idx += batch_size
-                answer_word, label_from_vqa = get_answer(logits.data, vqa_loader)
+            if(epoch % 2 == 0):
+                logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
+            else:
+                logits, outputs=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
 
-                Loss = nn.functional.binary_cross_entropy_with_logits(outputs,label_from_vqa)
+            idx += batch_size
+            answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
 
-                uncorr_xai.CaptionEncoder.zero_grad()
-                uncorr_xai.Guide.zero_grad()
+            RelScoreList=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
 
-                Loss.backward()
-                optimizer.step()
+            pdb.set_trace()
 
-                # Print log info
-                if i % args.log_step == 0:
-                    print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
-                          .format(epoch, args.num_epoch, i, total_step, Loss.item(), np.exp(Loss.item())))
+            Loss = criterion(outputs,answer_idx)
 
-                    # Save the model checkpoints
-                if (i + 1) % args.save_step == 0:
-                    # pdb.set_trace()
-                        model_path = os.path.join(
-                            save_path, 'model-{}-{}.pth'.format(epoch + 1, i + 1))
+            uncorr_xai.CaptionEncoder.zero_grad()
+            uncorr_xai.Guide.zero_grad()
+
+            Loss.backward()
+
+            if (epoch % 2 == 0):
+                optimizer[0].step()
+            else:
+                optimizer[1].step()
+
+            # Print log info
+            if i % args.log_step == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
+                      .format(epoch, args.num_epoch, i, total_step, Loss.item(), np.exp(Loss.item())))
 
 
-                    ####################################################################################################
-                    # implement utils.save_xai_model
 
-                    #utils.save_xai_model(save_path,  , epoch, optimizer)
 
-                    ####################################################################################################
+
 
         bar.update(idx)
         is_Init = False
+
+        # Save the model checkpoints
+        save_path = os.path.join(
+            args.xai_model_loc, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim), args.x_method,
+            args.s_method, 'xai-model-{}-Final.pth'.format(epoch + 1))
+        ####################################################################################################
+        # implement utils.save_xai_model
+
+        utils_save.save_xai_module(save_path, uncorr_xai.CaptionEncoder, uncorr_xai.Guide, epoch, optimizer)
+
+        ####################################################################################################
+
+    ####################################################################################################
+    # implement utils.save_xai_model
+
+    utils_save.save_xai_module(save_path, uncorr_xai.CaptionEncoder, uncorr_xai.Guide, epoch, optimizer)
 
 
 
@@ -189,6 +211,25 @@ if __name__ == '__main__':
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
 
+
+
+    Dict_IdxA_2_IdxQ={}
+    for Wa_set in vqa_dset.ans2label.keys():
+        for Wa in word_tokenize(Wa_set):
+            if Wa in vqa_dset.dictionary.word2idx.keys():
+                if vqa_dset.ans2label[Wa_set] in Dict_IdxA_2_IdxQ.keys():
+                    Dict_IdxA_2_IdxQ[vqa_dset.ans2label[Wa_set]].append(vqa_dset.dictionary.word2idx[Wa])
+                else:
+                    Dict_IdxA_2_IdxQ[vqa_dset.ans2label[Wa_set]]=[vqa_dset.dictionary.word2idx[Wa]]
+
+    Dict_IdxC_2_IdxQ = {}
+    for Wc in vocab.word2idx.keys():
+        if Wc in vqa_dset.dictionary.word2idx.keys():
+            Dict_IdxC_2_IdxQ[vocab.word2idx[Wc]] = vqa_dset.dictionary.word2idx[Wc]
+
+
+    Dict_AC_2_Q=(Dict_IdxA_2_IdxQ, Dict_IdxC_2_IdxQ)
+
     #train the encoder/decoder pair this time (fine-tuning stage for dual-loss)
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
@@ -198,17 +239,22 @@ if __name__ == '__main__':
     ################################################################################################################
     # implement these in model.py
 
-    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, vqa_dset.num_ans_candidates)
-    guide=GuideVfeat(args.hidden_size_BAN, 2048)
+    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, vqa_dset.num_ans_candidates).to(device)
+    guide=GuideVfeat(args.hidden_size_BAN, 2048).to(device)
 
 
     ################################################################################################################
 
-    params = list(CaptionEncoder.parameters()) + list(guide.parameters())
-    # params = list(decoder.parameters())
-    optimizer = torch.optim.Adam(params, lr=args.learning_rate)
+    params1 = list(caption_encoder.parameters())
+    params2 = list(guide.parameters())
 
-    def process(args, model, vqa_loader, optimizer):
+    # params = list(decoder.parameters())
+    optimizer1 = torch.optim.Adam(params1, lr=args.learning_rate)
+    optimizer2 = torch.optim.Adam(params2, lr=args.learning_rate)
+
+    optimizer=(optimizer1, optimizer2)
+
+    def process(args, model, vqa_loader, optimizer, Dict_AC_2_Q):
         model_path = args.input + '/model%s.pth' % \
                      ('' if 0 > args.epoch else '_epoch%d' % args.epoch)
 
@@ -233,9 +279,11 @@ if __name__ == '__main__':
 
         #pdb.set_trace()
 
-        model.train(False) # Do not train VQA part
-        encoder.train(False)
-        decoder.train(False)
+        # model.train(False) # Do not train VQA part
+        # encoder.train(False)
+        # decoder.train(False)
+
+
 
         uncorr_xai = UNCorrXAI(model,encoder,decoder,caption_encoder,guide)
 
@@ -247,7 +295,7 @@ if __name__ == '__main__':
             os.makedirs(os.path.join(args.xai_model_loc,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim),args.x_method,args.s_method))
 
 
-        train_XAI(uncorr_xai, vqa_loader, vocab, optimizer, args)
+        train_XAI(uncorr_xai, vqa_loader, vocab, optimizer, args, Dict_AC_2_Q)
 
         ################################################################################################################
 
@@ -255,4 +303,4 @@ if __name__ == '__main__':
 
 
 
-    process(args, model, vqa_loader, optimizer)
+    process(args, model, vqa_loader, optimizer, Dict_AC_2_Q)

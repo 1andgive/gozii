@@ -70,25 +70,86 @@ def Relev_Check(Caption,Question,Answer,W_Emb,Dictionary):
         return RelScore
 
 
+# MAP 'Caption Word' and 'Answer Word' to 'Question Dictionary Index', find Word Embedding from this dictionary, and measure Sentence Similarity
+def Relev_Check_by_IDX(CaptionIDX,QuestionIDX,AnswerIDX,W_Emb,Dict_AC_2_Q):
+
+    RelScoreList=[]
+    Dict_A2Q = Dict_AC_2_Q[0]
+    Dict_C2Q = Dict_AC_2_Q[1]
+
+    for idx in range(CaptionIDX.size(0)):
+
+        Caption=CaptionIDX[idx]
+        WaSet=AnswerIDX[idx]
+        Question=QuestionIDX[idx]
+
+        x_caption = []
+        if Caption[0] == 1:
+            for idx3 in Caption[1:]:
+                if idx3 != 2:
+                    x_caption.append(idx3)
+                else:
+                    break
+
+        Wc_inQ_idx = []
+        Wa_inQ_idx = []
+        for Wc_IDX in x_caption:
+            if Wc_IDX in Dict_C2Q.keys():
+                Wc_inQ_idx.append(Dict_C2Q[Wc_IDX])
+
+
+        for Wa_IDX in WaSet:
+            if Wa_IDX in Dict_A2Q.keys():
+                Wa_inQ_idx.append(Dict_A2Q[Wa_IDX])
+
+        Wc = torch.Tensor(Wc_inQ_idx)
+        Wa = torch.Tensor(Wa_inQ_idx)
+        if (Wc.nelement() == 0):
+            RelScoreList.append(0.0)
+        elif (Wa.nelement() == 0):
+            # RelScore=0.0
+            RelScoreList.append(None)
+        else:
+            Wc = Wc.unsqueeze(0)
+            # Wq=q
+
+            Wa = Wa.unsqueeze(0)
+            Wc_Emb = W_Emb(Wc.type(torch.cuda.LongTensor))
+            Wq_Emb = W_Emb(Question)
+            Wa_Emb = W_Emb(Wa.type(torch.cuda.LongTensor))
+            RelScore = 0.5 * (Sen_Sim(Wq_Emb, Wc_Emb) + Sen_Sim(Wa_Emb, Wc_Emb))
+            RelScore = RelScore.item()
+
+            RelScoreList.append(RelScore)
+
+    return RelScore
+
 
 class CaptionEncoder(nn.Module):
-    def __init__(self,embed_size, hidden_size, num_class, num_layers=1):
+    def __init__(self,embed_size, hidden_size, num_class, low_rank=256,num_layers=1):
         super(CaptionEncoder,self).__init__()
         self.hidden_size=hidden_size
-        pdb.set_trace()
         self.lstm_=nn.LSTM(embed_size,hidden_size,num_layers,batch_first=True) # word embedding to hidden size mapping, hidden size == q_embedding size
-        self.linear = nn.Linear(hidden_size,num_class)
+        self.P = nn.Linear(low_rank,num_class)
+        self.U = nn.Linear(hidden_size, low_rank)
+        self.V = nn.Linear(hidden_size, low_rank)
         self.act_relu = nn.ReLU()
-        self.softmax=nn.LogSoftmax(dim=1)
+        self.softmax=nn.Softmax(dim=1)
 
-    def forward(self, input_embeddings, q_enc_states):
+    def forward(self, input_embeddings, states):
 
-        outputs, hiddens = self.lstm(input_embeddings, q_enc_states) # final_hiddens = (h_n, c_n)
+        outputs, hiddens = self.lstm_(input_embeddings, states) # final_hiddens = (h_n, c_n)
 
         return outputs, hiddens
 
-    def forward_CL(self,final_hidden):
-        outputs = self.softmax(self.act_relu(self.linear(final_hidden)))
+    def forward_CL(self,Q_emb, C_emb):
+
+
+        Emb =self.act_relu(self.V(C_emb)) * self.act_relu(self.U(Q_emb))
+
+        Emb =self.act_relu(self.P(Emb))
+
+        outputs = self.softmax(Emb.squeeze())
         return outputs
 
 class GuideVfeat(nn.Module):
@@ -107,6 +168,7 @@ class GuideVfeat(nn.Module):
 
 class UNCorrXAI(nn.Module):
     def __init__(self,BAN,encoder,decoder,CaptionEncoder,Guide):
+        super(UNCorrXAI,self).__init__()
         self.BAN=BAN
         self.encoder=encoder # EncoderHieStackedCorr
         self.decoder=decoder # DecoderRNN
@@ -122,6 +184,8 @@ class UNCorrXAI(nn.Module):
         assert t_method in ['mean', 'uncorr']
 
         logits, att = self.BAN(v, b, q, None)
+
+
 
         att_final = att[:, -1, :, :]
         # 원래는 q_net(q)와 v_net(v)가 Att matrix의 양 끝에 Matrix-Multiplication 된다.
@@ -161,6 +225,7 @@ class UNCorrXAI(nn.Module):
         elif x_method == 'NoAtt':
             atted_v_feats = v
 
+
         Enc = self.encoder
         if (model_num == 1):
             if (t_method == 'mean'):
@@ -183,12 +248,15 @@ class UNCorrXAI(nn.Module):
             elif (t_method == 'uncorr'):
                 x_ = Enc.MeanVmat(Enc.UnCorrVmat_Lrelu(atted_v_feats))
 
-        q_emb=self.BAN.extractQEmb(q)
+        q_emb=self.BAN.module.extractQEmb(q)
+        q_emb=q_emb.unsqueeze(1)
 
         if (is_Init):
             x_new=x_
         else:
             x_new=self.Guide(q_emb,x_)
+
+
 
         encoded_feats=Enc.bn(Enc.linear(x_new))
 
@@ -199,7 +267,7 @@ class UNCorrXAI(nn.Module):
 
         if (flag == 'fix_guide'):
             states=None
-            states2=q_emb
+            states2=None
             Dec=self.decoder
             Cap_Enc = self.CaptionEncoder
             inputs = encoded_feats.unsqueeze(1)
@@ -211,17 +279,20 @@ class UNCorrXAI(nn.Module):
                 _, predicted = outputs.max(1)  # predicted: (batch_size)
                 inputs = Dec.embed(predicted)  # inputs: (batch_size, embed_size)
                 sampled_ids.append(predicted)
-                hiddens2, states2 = Cap_Enc(inputs,states2)
                 inputs = inputs.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
+                hiddens2, states2 = Cap_Enc(inputs,states2)
+
             sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
-            return logits, Cap_Enc.forward_CL(hiddens2), sampled_ids
+
+
+            return logits, Cap_Enc.forward_CL(q_emb,hiddens2), sampled_ids
 
         ################################################################################################################
         # 2. Fixing Encoder-Class. Input to <Enc-Class> is Expectation of embedding
 
         elif (flag == 'fix_cap_enc'):
             states = None
-            states2 = q_emb
+            states2 = None
             Dec = self.decoder
             Cap_Enc = self.CaptionEncoder
             inputs = encoded_feats.unsqueeze(1)
@@ -233,8 +304,8 @@ class UNCorrXAI(nn.Module):
                 Expected_Emb=torch.cuda.zeros(ProbMF.size())
                 for idx in range(Dec.vocab_size):
                     Expected_Emb = Expected_Emb + ProbMF[:,idx] * Dec.embed(idx)
-                hiddens2, states2 = Cap_Enc(Expected_Emb, states2)
                 inputs = Expected_Emb.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
+                hiddens2, states2 = Cap_Enc(inputs, states2)
 
-            return logits, Cap_Enc.forward_CL(hiddens2)
+            return logits, Cap_Enc.forward_CL(q_emb,hiddens)
 
