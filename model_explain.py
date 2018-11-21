@@ -73,56 +73,62 @@ def Relev_Check(Caption,Question,Answer,W_Emb,Dictionary):
 # MAP 'Caption Word' and 'Answer Word' to 'Question Dictionary Index', find Word Embedding from this dictionary, and measure Sentence Similarity
 def Relev_Check_by_IDX(CaptionIDX,QuestionIDX,AnswerIDX,W_Emb,Dict_AC_2_Q):
 
-    RelScoreList=[]
-    Dict_A2Q = Dict_AC_2_Q[0]
-    Dict_C2Q = Dict_AC_2_Q[1]
+    with torch.no_grad():
+        RelScoreList=[]
+        Dict_A2Q = Dict_AC_2_Q[0]
+        Dict_C2Q = Dict_AC_2_Q[1]
 
-    for idx in range(CaptionIDX.size(0)):
+        for idx in range(CaptionIDX.size(0)):
 
-        Caption=CaptionIDX[idx]
-        WaSet=AnswerIDX[idx]
-        Question=QuestionIDX[idx]
+            Caption=CaptionIDX[idx]
+            Wa_IDX=AnswerIDX[idx]
+            Question=QuestionIDX[idx]
 
-        x_caption = []
-        if Caption[0] == 1:
-            for idx3 in Caption[1:]:
-                if idx3 != 2:
-                    x_caption.append(idx3)
-                else:
-                    break
+            x_caption = []
+            if Caption[0] == 1:
+                for idx3 in Caption[1:]:
+                    if idx3 != 2:
+                        x_caption.append(idx3)
+                    else:
+                        break
 
-        Wc_inQ_idx = []
-        Wa_inQ_idx = []
-        for Wc_IDX in x_caption:
-            if Wc_IDX in Dict_C2Q.keys():
-                Wc_inQ_idx.append(Dict_C2Q[Wc_IDX])
+            Wc_inQ_idx = []
+            for Wc_IDX in x_caption:
+                if Wc_IDX.item() in Dict_C2Q.keys():
+                    Wc_inQ_idx.append(Dict_C2Q[Wc_IDX.item()])
 
 
-        for Wa_IDX in WaSet:
-            if Wa_IDX in Dict_A2Q.keys():
-                Wa_inQ_idx.append(Dict_A2Q[Wa_IDX])
 
-        Wc = torch.Tensor(Wc_inQ_idx)
-        Wa = torch.Tensor(Wa_inQ_idx)
-        if (Wc.nelement() == 0):
-            RelScoreList.append(0.0)
-        elif (Wa.nelement() == 0):
-            # RelScore=0.0
-            RelScoreList.append(None)
-        else:
-            Wc = Wc.unsqueeze(0)
-            # Wq=q
+            if Wa_IDX.item() in Dict_A2Q.keys():
+                Wa_inQ_idx=Dict_A2Q[Wa_IDX.item()]
+            else:
+                Wa_inQ_idx=[]
 
-            Wa = Wa.unsqueeze(0)
-            Wc_Emb = W_Emb(Wc.type(torch.cuda.LongTensor))
-            Wq_Emb = W_Emb(Question)
-            Wa_Emb = W_Emb(Wa.type(torch.cuda.LongTensor))
-            RelScore = 0.5 * (Sen_Sim(Wq_Emb, Wc_Emb) + Sen_Sim(Wa_Emb, Wc_Emb))
-            RelScore = RelScore.item()
+            Wc = torch.Tensor(Wc_inQ_idx)
+            Wa = torch.Tensor(Wa_inQ_idx)
 
-            RelScoreList.append(RelScore)
 
-    return RelScore
+            if (Wc.nelement() == 0):
+                RelScoreList.append(0.0)
+            elif (Wa.nelement() == 0):
+                # RelScore=0.0
+                RelScoreList.append(0.0)
+            else:
+                Wc = Wc.unsqueeze(0)
+                # Wq=q
+
+                Wa = Wa.unsqueeze(0)
+                Question=Question.unsqueeze(0)
+
+                Wc_Emb = W_Emb(Wc.type(torch.cuda.LongTensor))
+                Wq_Emb = W_Emb(Question)
+                Wa_Emb = W_Emb(Wa.type(torch.cuda.LongTensor))
+                RelScore = 0.5 * (Sen_Sim(Wq_Emb, Wc_Emb) + Sen_Sim(Wa_Emb, Wc_Emb))
+                RelScore = RelScore.item()
+
+                RelScoreList.append(RelScore)
+
+    return torch.Tensor(RelScoreList)
 
 
 class CaptionEncoder(nn.Module):

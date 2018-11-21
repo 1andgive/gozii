@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=100)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -62,10 +62,11 @@ def parse_args():
     parser.add_argument('--HSC_model', type=int, default=1)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--LRdim', type=int, default=64)
-    parser.add_argument('--log_step', type=int, default=200, help='step size for prining log info')
+    parser.add_argument('--log_step', type=int, default=10, help='step size for prining log info')
     parser.add_argument('--save_step', type=int, default=400, help='step size for saving trained models')
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--num_epoch', type=int, default=13)
+    parser.add_argument('--RelScoreThres', type=float, default=0.6)
     args = parser.parse_args()
     return args
 
@@ -127,9 +128,15 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             idx += batch_size
             answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
 
-            RelScoreList=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
+            ############################################################################################################
+            # Relevance Score 부분은 문제 없으나, network 점검을 위해 잠시 주석처리함
+            # if (epoch % 2 == 0):
+            #     RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
+            #     RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
+            #     outputs=outputs[RelevantIDX]
+            #     answer_idx = answer_idx[RelevantIDX]
 
-            pdb.set_trace()
+            ############################################################################################################
 
             Loss = criterion(outputs,answer_idx)
 
