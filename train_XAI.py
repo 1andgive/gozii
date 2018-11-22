@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=100)
+    parser.add_argument('--batch_size', type=int, default=80)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -67,6 +67,7 @@ def parse_args():
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--num_epoch', type=int, default=13)
     parser.add_argument('--RelScoreThres', type=float, default=0.6)
+    parser.add_argument('--CheckConverges', type=bool, default=False)
     args = parser.parse_args()
     return args
 
@@ -108,6 +109,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
 
     save_path = os.path.join('model_xai',  args.t_method, args.x_method, args.s_method)
     is_Init = True
+
 
     for epoch in range(args.num_epoch):
 
@@ -154,6 +156,10 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
                       .format(epoch, args.num_epoch, i, total_step, Loss.item(), np.exp(Loss.item())))
+
+            if(args.CheckConverges):
+                if i > 100:
+                    break
 
 
 
@@ -246,7 +252,7 @@ if __name__ == '__main__':
     ################################################################################################################
     # implement these in model.py
 
-    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, vqa_dset.num_ans_candidates).to(device)
+    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size, vqa_dset.num_ans_candidates).to(device)
     guide=GuideVfeat(args.hidden_size_BAN, 2048).to(device)
 
 

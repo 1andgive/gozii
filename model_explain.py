@@ -132,13 +132,13 @@ def Relev_Check_by_IDX(CaptionIDX,QuestionIDX,AnswerIDX,W_Emb,Dict_AC_2_Q):
 
 
 class CaptionEncoder(nn.Module):
-    def __init__(self,embed_size, hidden_size, num_class, low_rank=256,num_layers=1):
+    def __init__(self,embed_size, hidden_size, c_hidden_size, num_class, low_rank=256,num_layers=1):
         super(CaptionEncoder,self).__init__()
         self.hidden_size=hidden_size
-        self.lstm_=nn.LSTM(embed_size,hidden_size,num_layers,batch_first=True) # word embedding to hidden size mapping, hidden size == q_embedding size
+        self.lstm_=nn.LSTM(embed_size,c_hidden_size,num_layers,batch_first=True) # word embedding to hidden size mapping, hidden size == q_embedding size
         self.P = nn.Linear(low_rank,num_class)
         self.U = nn.Linear(hidden_size, low_rank)
-        self.V = nn.Linear(hidden_size, low_rank)
+        self.V = nn.Linear(c_hidden_size, low_rank)
         self.act_relu = nn.ReLU()
         self.softmax=nn.Softmax(dim=1)
 
@@ -168,7 +168,7 @@ class GuideVfeat(nn.Module):
 
     def forward(self,q_emb,x):
         h_vec=self.act_relu(self.linear(q_emb))
-        x_new=(1+h_vec)*x # Guiding
+        x_new=(1+h_vec.squeeze())*x # Guiding
         return x_new
 
 
@@ -302,16 +302,16 @@ class UNCorrXAI(nn.Module):
             Dec = self.decoder
             Cap_Enc = self.CaptionEncoder
             inputs = encoded_feats.unsqueeze(1)
+            Embed_Table=Dec.embed(torch.cuda.LongTensor([ii for ii in range(Dec.vocab_size)]))
+            Embed_Table=Embed_Table.unsqueeze(0)
             for i in range(Dec.max_seg_length):
                 hiddens, states = Dec.lstm(inputs, states)  # hiddens: (batch_size, 1, hidden_size)
 
                 outputs = Dec.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
                 ProbMF = self.softmax(outputs)  # Probability Mass Function of Words, (batch_size, vocab_size)
-                Expected_Emb=torch.cuda.zeros(ProbMF.size())
-                for idx in range(Dec.vocab_size):
-                    Expected_Emb = Expected_Emb + ProbMF[:,idx] * Dec.embed(idx)
+                Expected_Emb = torch.mean(ProbMF.unsqueeze(2)*Embed_Table,1)
                 inputs = Expected_Emb.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
                 hiddens2, states2 = Cap_Enc(inputs, states2)
 
-            return logits, Cap_Enc.forward_CL(q_emb,hiddens)
+            return logits, Cap_Enc.forward_CL(q_emb,hiddens2)
 

@@ -10,7 +10,7 @@ from model import Encoder_HieStackedCorr, DecoderRNN
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 import pdb
-import utils_hsc as utils
+
 
 
 # Device configuration
@@ -62,6 +62,8 @@ def main(args):
     
     # Train the models
     total_step = len(data_loader)
+
+
     if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim))):
         os.makedirs(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim)))
     for epoch in range(args.num_epochs):

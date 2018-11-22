@@ -19,6 +19,7 @@ def save_xai_module(path, CaptionEnc, Guide, epoch, optimizer=None):
             'Guide_state': Guide.state_dict()
         }
     if optimizer is not None:
-        model_dict['optimizer_state'] = optimizer.state_dict()
+        model_dict['optimizer1_state'] = optimizer[0].state_dict()
+        model_dict['optimizer2_state'] = optimizer[1].state_dict()
 
     torch.save(model_dict, path)
