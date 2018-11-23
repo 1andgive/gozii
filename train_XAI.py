@@ -14,7 +14,7 @@ import numpy as np
 import pickle
 from build_vocab import Vocabulary
 from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-from model_explain import GuideVfeat, CaptionEncoder, Relev_Check_by_IDX, UNCorrXAI
+from model_explain3 import GuideVfeat, CaptionEncoder, Relev_Check_by_IDX, UNCorrXAI
 from nltk.tokenize import word_tokenize
 
 sys.path.append('D:\\VQA\\BAN')
@@ -87,7 +87,10 @@ def get_answer(p, dataloader):
         label_from_vqa[i,idx[i]]=1
     return idx, label_from_vqa
 
+def requires_grad_Switch(module,isTrain=True):
 
+    for p in module.parameters():
+        p.requires_grad=isTrain
 
 
 
@@ -101,6 +104,10 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
     bar = progressbar.ProgressBar(maxval=N * args.num_epoch).start()
     total_step = len(vqa_loader)
     criterion=nn.CrossEntropyLoss()
+
+    requires_grad_Switch(uncorr_xai.BAN ,isTrain=False)
+    requires_grad_Switch(uncorr_xai.encoder, isTrain=False)
+    requires_grad_Switch(uncorr_xai.decoder, isTrain=False)
 
 
 
@@ -122,6 +129,20 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
+
+            uncorr_xai.CaptionEncoder.zero_grad()
+            uncorr_xai.Guide.zero_grad()
+
+            # if (epoch % 2 == 0):
+            #     requires_grad_Switch(uncorr_xai.CaptionEncoder,isTrain=True)
+            #     requires_grad_Switch(uncorr_xai.Guide, isTrain=False)
+            # else:
+            #     requires_grad_Switch(uncorr_xai.CaptionEncoder, isTrain=False)
+            #     requires_grad_Switch(uncorr_xai.Guide, isTrain=True)
+
+
+
+
             if(epoch % 2 == 0):
                 logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
             else:
@@ -133,23 +154,23 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             ############################################################################################################
             # Relevance Score 부분은 문제 없으나, network 점검을 위해 잠시 주석처리함
             # if (epoch % 2 == 0):
-            #     RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
-            #     RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
-            #     outputs=outputs[RelevantIDX]
+            #     with torch.no_grad():
+            #         RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
+            #         RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
+            #     outputs = outputs[RelevantIDX]
             #     answer_idx = answer_idx[RelevantIDX]
 
             ############################################################################################################
 
             Loss = criterion(outputs,answer_idx)
-
-            uncorr_xai.CaptionEncoder.zero_grad()
-            uncorr_xai.Guide.zero_grad()
-
             Loss.backward()
+
+
 
             if (epoch % 2 == 0):
                 optimizer[0].step()
             else:
+                pdb.set_trace()
                 optimizer[1].step()
 
             # Print log info
@@ -253,17 +274,17 @@ if __name__ == '__main__':
     # implement these in model.py
 
     caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size, vqa_dset.num_ans_candidates).to(device)
-    guide=GuideVfeat(args.hidden_size_BAN, 2048).to(device)
+    guide=GuideVfeat(args.hidden_size_BAN, 2048, args.hidden_size).to(device)
 
 
     ################################################################################################################
 
-    params1 = list(caption_encoder.parameters())
-    params2 = list(guide.parameters())
+    params1 = caption_encoder.parameters()
+    params2 = guide.parameters()
 
     # params = list(decoder.parameters())
-    optimizer1 = torch.optim.Adam(params1, lr=args.learning_rate)
-    optimizer2 = torch.optim.Adam(params2, lr=args.learning_rate)
+    optimizer1 = torch.optim.Adamax(params1, lr=args.learning_rate)
+    optimizer2 = torch.optim.Adamax(params2, lr=args.learning_rate)
 
     optimizer=(optimizer1, optimizer2)
 
