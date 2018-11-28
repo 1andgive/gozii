@@ -14,7 +14,7 @@ import numpy as np
 import pickle
 from build_vocab import Vocabulary
 from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-from model_explain3 import GuideVfeat, CaptionEncoder, Relev_Check_by_IDX, UNCorrXAI
+from model_explain import GuideVfeat, CaptionEncoder, Relev_Check_by_IDX, UNCorrXAI
 from nltk.tokenize import word_tokenize
 
 sys.path.append('D:\\VQA\\BAN')
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=80)
+    parser.add_argument('--batch_size', type=int, default=160)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -62,12 +62,14 @@ def parse_args():
     parser.add_argument('--HSC_model', type=int, default=1)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--LRdim', type=int, default=64)
-    parser.add_argument('--log_step', type=int, default=10, help='step size for prining log info')
+    parser.add_argument('--log_step', type=int, default=100, help='step size for prining log info')
     parser.add_argument('--save_step', type=int, default=400, help='step size for saving trained models')
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--num_epoch', type=int, default=13)
     parser.add_argument('--RelScoreThres', type=float, default=0.6)
     parser.add_argument('--CheckConverges', type=bool, default=False)
+    parser.add_argument('--lambda_', type=float, default=0.001)
+    parser.add_argument('--alpha_', type=float, default=0.6)
     args = parser.parse_args()
     return args
 
@@ -133,12 +135,12 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             uncorr_xai.CaptionEncoder.zero_grad()
             uncorr_xai.Guide.zero_grad()
 
-            # if (epoch % 2 == 0):
-            #     requires_grad_Switch(uncorr_xai.CaptionEncoder,isTrain=True)
-            #     requires_grad_Switch(uncorr_xai.Guide, isTrain=False)
-            # else:
-            #     requires_grad_Switch(uncorr_xai.CaptionEncoder, isTrain=False)
-            #     requires_grad_Switch(uncorr_xai.Guide, isTrain=True)
+            if (epoch % 2 == 0):
+                requires_grad_Switch(uncorr_xai.CaptionEncoder,isTrain=True)
+                requires_grad_Switch(uncorr_xai.Guide, isTrain=False)
+            else:
+                requires_grad_Switch(uncorr_xai.CaptionEncoder, isTrain=False)
+                requires_grad_Switch(uncorr_xai.Guide, isTrain=True)
 
 
 
@@ -146,7 +148,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             if(epoch % 2 == 0):
                 logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
             else:
-                logits, outputs=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
+                logits, outputs, L0_norm_guide, L2_norm_guide =uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
 
             idx += batch_size
             answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
@@ -162,7 +164,11 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
 
             ############################################################################################################
 
-            Loss = criterion(outputs,answer_idx)
+            Loss = criterion(outputs, answer_idx)
+            if (epoch % 2 != 0):
+                Loss = Loss + args.lambda_*(args.alpha_*L0_norm_guide - (1-args.alpha_) * L2_norm_guide)
+
+
             Loss.backward()
 
 
@@ -170,7 +176,6 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             if (epoch % 2 == 0):
                 optimizer[0].step()
             else:
-                pdb.set_trace()
                 optimizer[1].step()
 
             # Print log info

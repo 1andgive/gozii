@@ -175,17 +175,24 @@ class CaptionEncoder(nn.Module):
 
 
 class GuideVfeat(nn.Module):
-    def __init__(self,q_embed_size,vdim):
+    def __init__(self,q_embed_size,vdim, decoder_hidden_dim):
         super(GuideVfeat,self).__init__()
         self.q_embed_size=q_embed_size
         self.vdim=vdim
         self.linear=nn.Linear(q_embed_size,vdim)
         self.act_relu = nn.ReLU()
+        self.linear_hidden = nn.Linear(q_embed_size,decoder_hidden_dim)
+        self.linear_hidden2 = nn.Linear(q_embed_size, decoder_hidden_dim)
 
     def forward(self,q_emb,x):
         h_vec=self.act_relu(self.linear(q_emb))
         x_new=(1+h_vec.squeeze())*x # Guiding
         return x_new
+
+    def forward_hidden(self, q_emb):
+        h_vec = torch.transpose(self.act_relu(self.linear_hidden(q_emb)),0,1)
+        c_vec = torch.transpose(self.act_relu(self.linear_hidden2(q_emb)),0,1)
+        return (h_vec, c_vec)
 
 
 class UNCorrXAI(nn.Module):

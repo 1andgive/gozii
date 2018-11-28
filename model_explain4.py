@@ -138,7 +138,7 @@ class CaptionEncoder(nn.Module):
         self.lstm_=nn.LSTM(embed_size,c_hidden_size,num_layers,batch_first=True) # word embedding to hidden size mapping, hidden size == q_embedding size
         self.P = weight_norm(nn.Linear(low_rank,num_class))
         self.U = weight_norm(nn.Linear(hidden_size, low_rank))
-        self.V = weight_norm(nn.Linear(embed_size, low_rank))
+        self.V = weight_norm(nn.Linear(c_hidden_size, low_rank))
         self.W = weight_norm(nn.Linear(embed_size, num_class))
         self.act_relu = nn.ReLU()
         self.softmax=nn.Softmax(dim=1)
@@ -150,7 +150,6 @@ class CaptionEncoder(nn.Module):
         return outputs, hiddens
 
     def forward_CL(self,Q_emb, C_emb):
-
 
         Emb =self.act_relu(self.V(C_emb)) * self.act_relu(self.U(Q_emb))
 
@@ -298,6 +297,7 @@ class UNCorrXAI(nn.Module):
 
         if (flag == 'fix_guide'):
             states=h_vec
+            states2=None
             Dec = self.decoder
             Cap_Enc = self.CaptionEncoder
             inputs = encoded_feats.unsqueeze(1)
@@ -313,16 +313,18 @@ class UNCorrXAI(nn.Module):
                 sampled_ids.append(predicted)
                 sampled_embed.append(inputs)
                 inputs = inputs.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)model_explain3.py
-
+                hiddens2, states2 = Cap_Enc(inputs, states2)
 
             sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
-            return logits, Cap_Enc.forward_DirectCL(q_emb,torch.stack(sampled_embed[1:],1)), sampled_ids
+
+            return logits, Cap_Enc.forward_CL(q_emb, hiddens2), sampled_ids
 
         ################################################################################################################
         # 2. Fixing Encoder-Class. Input to <Enc-Class> is Expectation of embedding
 
         elif (flag == 'fix_cap_enc'):
             states = h_vec
+            states2=None
             Dec = self.decoder
             Cap_Enc = self.CaptionEncoder
             inputs = encoded_feats.unsqueeze(1)
@@ -337,7 +339,7 @@ class UNCorrXAI(nn.Module):
                 Expected_Emb = torch.mean(ProbMF.unsqueeze(2)*Embed_Table,1)
                 sampled_embed.append(Expected_Emb)
                 inputs = Expected_Emb.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
+                hiddens2, states2 = Cap_Enc(inputs, states2)
 
-
-            return logits, Cap_Enc.forward_DirectCL(q_emb,torch.stack(sampled_embed[1:],1))
+            return logits, Cap_Enc.forward_CL(q_emb, hiddens2)
 

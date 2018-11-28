@@ -151,7 +151,6 @@ class CaptionEncoder(nn.Module):
 
     def forward_CL(self,Q_emb, C_emb):
 
-
         Emb =self.act_relu(self.V(C_emb)) * self.act_relu(self.U(Q_emb))
 
         Emb =self.act_relu(self.P(Emb))
@@ -174,17 +173,31 @@ class CaptionEncoder(nn.Module):
 
 
 class GuideVfeat(nn.Module):
-    def __init__(self,q_embed_size,vdim):
+    def __init__(self,q_embed_size,vdim, decoder_hidden_dim):
         super(GuideVfeat,self).__init__()
         self.q_embed_size=q_embed_size
         self.vdim=vdim
         self.linear=nn.Linear(q_embed_size,vdim)
         self.act_relu = nn.ReLU()
+        self.linear_hidden = nn.Linear(q_embed_size,decoder_hidden_dim)
+        self.linear_hidden2 = nn.Linear(q_embed_size, decoder_hidden_dim)
+
+        self.act_sig=nn.Sigmoid()
 
     def forward(self,q_emb,x):
         h_vec=self.act_relu(self.linear(q_emb))
-        x_new=(1+h_vec.squeeze())*x # Guiding
-        return x_new
+        h_vec=h_vec.squeeze()
+        x_new=(1+h_vec)*x # Guiding
+
+        L0_approx=torch.mean(torch.sum(self.act_sig(h_vec),1))
+        L2_approx=torch.mean(torch.sum(h_vec,1))
+
+        return x_new, L0_approx, L2_approx
+
+    def forward_hidden(self, q_emb):
+        h_vec = torch.transpose(self.act_relu(self.linear_hidden(q_emb)),0,1)
+        c_vec = torch.transpose(self.act_relu(self.linear_hidden2(q_emb)),0,1)
+        return (h_vec, c_vec)
 
 
 class UNCorrXAI(nn.Module):
@@ -275,7 +288,7 @@ class UNCorrXAI(nn.Module):
         if (is_Init):
             x_new=x_
         else:
-            x_new=self.Guide(q_emb,x_)
+            x_new, L0_guide, L2_guide=self.Guide(q_emb,x_)
 
 
 
@@ -298,7 +311,6 @@ class UNCorrXAI(nn.Module):
 
                 outputs = Dec.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
                 _, predicted = outputs.max(1)  # predicted: (batch_size)
-                pdb.set_trace()
                 inputs = Dec.embed(predicted)  # inputs: (batch_size, embed_size)
                 sampled_ids.append(predicted)
                 inputs = inputs.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
@@ -329,5 +341,5 @@ class UNCorrXAI(nn.Module):
                 inputs = Expected_Emb.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
                 hiddens2, states2 = Cap_Enc(inputs, states2)
 
-            return logits, Cap_Enc.forward_CL(q_emb,hiddens2)
+            return logits, Cap_Enc.forward_CL(q_emb,hiddens2), L0_guide, L2_guide
 
