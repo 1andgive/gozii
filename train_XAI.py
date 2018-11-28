@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=160)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
