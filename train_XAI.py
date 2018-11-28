@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -62,14 +62,14 @@ def parse_args():
     parser.add_argument('--HSC_model', type=int, default=1)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--LRdim', type=int, default=64)
-    parser.add_argument('--log_step', type=int, default=100, help='step size for prining log info')
+    parser.add_argument('--log_step', type=int, default=400, help='step size for prining log info')
     parser.add_argument('--save_step', type=int, default=400, help='step size for saving trained models')
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--num_epoch', type=int, default=13)
     parser.add_argument('--RelScoreThres', type=float, default=0.6)
     parser.add_argument('--CheckConverges', type=bool, default=False)
     parser.add_argument('--lambda_', type=float, default=0.001)
-    parser.add_argument('--alpha_', type=float, default=0.6)
+    parser.add_argument('--alpha_', type=float, default=0.85)
     args = parser.parse_args()
     return args
 
@@ -121,7 +121,6 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
 
 
     for epoch in range(args.num_epoch):
-
         for i, (v, b, q, a_)in enumerate(vqa_loader):
             bar.update(idx)
             batch_size = v.size(0)
@@ -149,6 +148,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
                 logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
             else:
                 logits, outputs, L0_norm_guide, L2_norm_guide =uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
+                
 
             idx += batch_size
             answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
@@ -182,6 +182,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
                       .format(epoch, args.num_epoch, i, total_step, Loss.item(), np.exp(Loss.item())))
+
 
             if(args.CheckConverges):
                 if i > 100:

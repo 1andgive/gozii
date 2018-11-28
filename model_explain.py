@@ -189,8 +189,8 @@ class GuideVfeat(nn.Module):
         h_vec=h_vec.squeeze()
         x_new=(1+h_vec)*x # Guiding
 
-        L0_approx=torch.mean(torch.sum(self.act_sig(h_vec),1))
-        L2_approx=torch.mean(torch.sum(h_vec,1))
+        L0_approx=torch.log(torch.mean(torch.sum(self.act_sig(h_vec),1)))
+        L2_approx=torch.log(torch.mean(torch.sum(h_vec,1)))
 
         return x_new, L0_approx, L2_approx
 
