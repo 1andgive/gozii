@@ -148,7 +148,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
                 logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
             else:
                 logits, outputs, L0_norm_guide, L2_norm_guide =uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
-                
+
 
             idx += batch_size
             answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
@@ -245,7 +245,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(vqa_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    vqa_loader = DataLoader(vqa_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    vqa_loader = DataLoader(vqa_dset, batch_size, shuffle=True, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:
