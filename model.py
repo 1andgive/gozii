@@ -102,6 +102,14 @@ class Encoder_HieStackedCorr(nn.Module):
 
         return torch.matmul(UnCorr,Vmat)
 
+    def UnCorrVmat_Detail(self,Vmat):
+        #pdb.set_trace()
+        RightUnCorr=self.act_tanh(self.linear_U1(Vmat))
+        LeftUnCorr = self.act_tanh(self.linear_U2(Vmat))
+        UnCorr=1+torch.eye(Vmat.size(1))+torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
+
+        return torch.matmul(UnCorr, Vmat)
+
     def UnCorrVmat_tanh(self,Vmat):
         #pdb.set_trace()
         RightUnCorr=self.act_tanh(self.linear_U1(Vmat))
