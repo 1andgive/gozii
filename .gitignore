@@ -9,6 +9,7 @@ codes/README.md
 codes/tools/data/
 models/
 data/
-saved_figs/
+saved_figs_with_caption/
+saved_figs_with_explain/
 images/
 model_XAI/

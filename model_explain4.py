@@ -343,3 +343,4 @@ class UNCorrXAI(nn.Module):
 
             return logits, Cap_Enc.forward_CL(q_emb, hiddens2)
 
+

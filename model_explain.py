@@ -186,7 +186,7 @@ class GuideVfeat(nn.Module):
 
     def forward(self,q_emb,x):
         h_vec=self.act_relu(self.linear(q_emb))
-        h_vec=h_vec.squeeze()
+        h_vec=h_vec.squeeze(1)
         x_new=(1+h_vec)*x # Guiding
 
         L0_approx=torch.log(torch.mean(torch.sum(self.act_sig(h_vec),1)))
@@ -343,3 +343,89 @@ class UNCorrXAI(nn.Module):
 
             return logits, Cap_Enc.forward_CL(q_emb,hiddens2), L0_guide, L2_guide
 
+    def Explain(self, v, b, q, t_method='mean', x_method='sum', s_method='BestOne', model_num=1):
+        assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
+        assert s_method in ['BestOne', 'BeamSearch']
+        assert model_num in [1, 2, 3, 4]
+        assert t_method in ['mean', 'uncorr']
+
+
+        logits, att = self.BAN(v, b, q, None)
+
+
+
+        att_final = att[:, -1, :, :]
+        # 원래는 q_net(q)와 v_net(v)가 Att matrix의 양 끝에 Matrix-Multiplication 된다.
+        att_for_v = torch.sum(att_final,
+                              2).unsqueeze(
+            2)  # average over question words (phrase-level inspection, each index for q in final stage does not represent word anymore (it rather represents something semantically more meaningful)
+        # att_for_v dimension => [b, v_feature_dim, 1]
+
+        num_objects = att_final.size(1)
+
+        if x_method == 'sum':
+            atted_v_feats = att_for_v * v  # attended visual features
+            atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        elif x_method == 'mean':
+            atted_v_feats = att_for_v * v  # attended visual features
+        elif x_method == 'sat_cut':
+            att_for_v = att_for_v.cpu().numpy()
+            att_for_v = np.clip(att_for_v, 0, 1.0 / num_objects)
+            att_for_v = torch.from_numpy(att_for_v).cuda()
+            atted_v_feats = att_for_v * v  # attended visual features
+            atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        elif x_method == 'top3':
+            att_for_v, _ = max_k(att_for_v, dim_=1, k=3)
+            v, _ = max_k(v, dim_=1, k=3)
+            atted_v_feats = att_for_v * v  # attended visual features
+            atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        elif x_method == 'top3_sat':
+            att_for_v, _ = max_k(att_for_v, dim_=1, k=3)
+            v, _ = max_k(v, dim_=1, k=3)
+            att_for_v = att_for_v.cpu().numpy()
+            att_for_v = np.clip(att_for_v, 0, 1.0 / num_objects)
+            att_for_v = torch.from_numpy(att_for_v).cuda()
+            atted_v_feats = att_for_v * v  # attended visual features
+            atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        elif x_method == 'weight_only':
+            atted_v_feats = (num_objects * att_for_v) * v  # attended visual features
+        elif x_method == 'NoAtt':
+            atted_v_feats = v
+
+
+        Enc = self.encoder
+        if (model_num == 1):
+            if (t_method == 'mean'):
+                x_ = Enc.MeanVmat(atted_v_feats)
+            elif (t_method == 'uncorr'):
+                x_ = Enc.MeanVmat(Enc.UnCorrVmat(atted_v_feats))
+        elif (model_num == 2):
+            if (t_method == 'mean'):
+                x_ = Enc.bn(Enc.linear(Enc.SumVmat(atted_v_feats)))
+            elif (t_method == 'uncorr'):
+                x_ = Enc.SumVmat(Enc.UnCorrVmat(atted_v_feats))
+        elif (model_num == 3):
+            if (t_method == 'mean'):
+                x_ = Enc.MeanVmat(atted_v_feats)
+            elif (t_method == 'uncorr'):
+                x_ = Enc.MeanVmat(Enc.UnCorrVmat_tanh(atted_v_feats))
+        elif (model_num == 4):
+            if (t_method == 'mean'):
+                x_ = Enc.MeanVmat(atted_v_feats)
+            elif (t_method == 'uncorr'):
+                x_ = Enc.MeanVmat(Enc.UnCorrVmat_Lrelu(atted_v_feats))
+
+        q_emb=self.BAN.module.extractQEmb(q)
+        q_emb=q_emb.unsqueeze(1)
+
+
+        x_, _, _ = self.Guide(q_emb, x_)
+
+        encoded_feats = Enc.bn(Enc.linear(x_))
+
+        if (s_method == 'BestOne'):
+            Generated_Captions = self.decoder.sample(encoded_feats)
+        elif (s_method == 'BeamSearch'):
+            Generated_Captions = self.decoder.BeamSearch(encoded_feats, NumBeams=3)
+
+        return Generated_Captions, logits, att

@@ -29,6 +29,7 @@ import pdb
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+from nltk.tokenize import word_tokenize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -99,10 +100,24 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     qIds = torch.IntTensor(N).zero_()
     idx = 0
     bar = progressbar.ProgressBar(maxval=N).start()
-    for v, b, q, i in iter(dataloader):
+    for v, b, _, i in iter(dataloader):
         bar.update(idx)
         batch_size = v.size(0)
-        q = q.type(torch.LongTensor)
+
+        fig = plt.figure(figsize=(19, 19))
+        plt.imshow(get_image(i[0].item(),Dict_qid2vid))
+        plt.show(block=False)
+        plt.pause(3)
+        plt.close()
+        q_string = input('Type Question (max word = 14): ')
+        Wq_=torch.cuda.LongTensor(1,14).fill_(19901)
+        Wq_list = word_tokenize(q_string)
+        for idx3 in range(len(Wq_list)):
+            Wq_[0,idx3]=dataloader.dataset.dictionary.word2idx[Wq_list[idx3]]
+        q = Wq_
+
+
+
         with torch.no_grad():
             v = Variable(v).cuda()
             b = Variable(b).cuda()
@@ -138,12 +153,12 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             continue
 
         if (s_method_ == 'BestOne'):
-            tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], RelScore,display=False)
+            tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], RelScore,display=True)
         elif (s_method_ == 'BeamSearch'):
             tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
-                                    captions_list[:len(generated_captions)], RelScore, display=False, NumBeams=len(generated_captions))
+                                    captions_list[:len(generated_captions)], RelScore, display=True, NumBeams=len(generated_captions))
         plt.savefig(os.path.join(save_fig_loc,t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
-        plt.close(tmp_fig)
+        plt.close()
 
     bar.update(idx)
 
@@ -162,7 +177,7 @@ def make_json(logits, qIds, dataloader):
 
 def showAttention(input_question, image, output_answer, attentions,bbox, explains, RelScore, display=True, NumBeams=1):
     # Set up figure with colorbar
-    fig = plt.figure(figsize=(25,19))
+    fig = plt.figure(figsize=(19,19))
     #pdb.set_trace()
     fig.text(0.2, 0.95, input_question, ha='center', va='center', fontsize=20)
 
@@ -317,7 +332,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    eval_loader = DataLoader(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    eval_loader = DataLoader(eval_dset, batch_size, shuffle=True, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:

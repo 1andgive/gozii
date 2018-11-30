@@ -66,9 +66,9 @@ def parse_args():
     parser.add_argument('--save_step', type=int, default=400, help='step size for saving trained models')
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--num_epoch', type=int, default=13)
-    parser.add_argument('--RelScoreThres', type=float, default=0.6)
+    parser.add_argument('--RelScoreThres', type=float, default=0.7)
     parser.add_argument('--CheckConverges', type=bool, default=False)
-    parser.add_argument('--lambda_', type=float, default=0.001)
+    parser.add_argument('--lambda_', type=float, default=0.0001)
     parser.add_argument('--alpha_', type=float, default=0.85)
     args = parser.parse_args()
     return args
@@ -154,13 +154,13 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
 
             ############################################################################################################
-            # Relevance Score 부분은 문제 없으나, network 점검을 위해 잠시 주석처리함
-            # if (epoch % 2 == 0):
-            #     with torch.no_grad():
-            #         RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
-            #         RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
-            #     outputs = outputs[RelevantIDX]
-            #     answer_idx = answer_idx[RelevantIDX]
+            # Relevance Score
+            if (epoch % 2 == 0):
+                with torch.no_grad():
+                    RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
+                    RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
+                outputs = outputs[RelevantIDX]
+                answer_idx = answer_idx[RelevantIDX]
 
             ############################################################################################################
 

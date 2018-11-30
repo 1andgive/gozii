@@ -21,7 +21,8 @@ sys.path.append('D:\\VQA\\BAN')
 from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
-from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+from model import Encoder_HieStackedCorr, DecoderRNN
+from model_explain import UNCorrXAI, GuideVfeat, CaptionEncoder
 
 import pdb
 
@@ -48,17 +49,20 @@ def parse_args():
     parser.add_argument('--index', type=int, default=0)
     parser.add_argument('--epoch', type=int, default=12)
     parser.add_argument('--hsc_epoch', type=int, default=13)
+    parser.add_argument('--xai_epoch', type=int, default=30)
     parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
+    parser.add_argument('--hidden_size_BAN', type=int, default=1280, help='dimension of GRU hidden states in BAN')
     parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
-    parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_caption/')
+    parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_explain/')
     parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
     parser.add_argument('--t_method', type=str, default='uncorr') # mean, uncorr
     parser.add_argument('--s_method', type=str, default='BestOne') # BestOne, BeamSearch
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--xai_model_loc', type=str, default='model_XAI/')
     args = parser.parse_args()
     return args
 
@@ -108,7 +112,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
-            generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
+            generated_captions, logits, att = caption_generator.Explain(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
 
             idx += batch_size
             img_list=[]
@@ -326,6 +330,9 @@ if __name__ == '__main__':
 
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
+    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size,
+                                     eval_dset.num_ans_candidates).to(device)
+    guide = GuideVfeat(args.hidden_size_BAN, 2048, args.hidden_size).to(device)
 
     def process(args, model, eval_loader,Dict_qid2vid):
         model_path = args.input + '/model%s.pth' % \
@@ -334,18 +341,22 @@ if __name__ == '__main__':
         print('loading %s' % model_path)
         model_data = torch.load(model_path)
 
-        if(args.t_method == 'mean'):
-            model_hsc_path = os.path.join(
-                args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
-        else:
-            model_hsc_path = os.path.join(
-                args.hsc_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
+        model_hsc_path = os.path.join(
+            args.hsc_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
 
         print('loading hsc datas %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
 
+        model_uncorr_pth=os.path.join(
+            args.xai_model_loc, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim), args.x_method,
+            args.s_method, 'xai-model-{}-Final.pth'.format(args.xai_epoch))
+        print('loading xai datas %s' % model_uncorr_pth)
+        model_xai_data = torch.load(model_uncorr_pth)
+
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
+        guide.load_state_dict(model_xai_data['Guide_state'])
+        caption_encoder.load_state_dict(model_xai_data['CaptionEnc_state'])
 
         model = nn.DataParallel(model).cuda()
         model.load_state_dict(model_data.get('model_state', model_data))
@@ -356,7 +367,7 @@ if __name__ == '__main__':
         encoder.train(False)
         decoder.train(False)
 
-        caption_generator=BAN_HSC(model,encoder,decoder)
+        caption_generator=UNCorrXAI(model,encoder,decoder,caption_encoder,guide)
 
         ################################################################################################################
 
