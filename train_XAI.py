@@ -131,6 +131,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             q = Variable(q).cuda()
 
 
+
             uncorr_xai.CaptionEncoder.zero_grad()
             uncorr_xai.Guide.zero_grad()
 

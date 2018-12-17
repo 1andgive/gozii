@@ -15,6 +15,7 @@ import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=FutureWarning)
     import h5py
+from nltk.tokenize import word_tokenize
 
 
 
@@ -236,3 +237,38 @@ def trim_collate(batch):
     storage = batch[0].storage()._new_shared(numel)
     out = batch[0].new(storage)
     return torch.stack([F.pad(x, (0, 0, 0, max_num_boxes - x.size(0))).data for x in batch], 0, out=out)
+
+
+class VQA_E_loader(data.Dataset):
+    """VQA_E Dataset (VQA_E) compatible with torch.utils.data.DataLoader."""
+
+    def __init__(self,VQAE_train,VQAE_val,vqaDict,captionVcoab, captionMaxSeqLength=20,dataroot='codes\\tools\\data'):
+        self.VQA_E=VQAE_train+VQAE_val
+        self.vqaDict=vqaDict
+        self.capVoc=captionVcoab
+        self.captionMaxSeqLength=captionMaxSeqLength
+        ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
+        self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
+
+    def __getitem__(self, index):
+        pdb.set_trace()
+        question=self.VQA_E[index]['question'][:-1].lower()
+        Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+        Wq_list = word_tokenize(question)
+        pdb.set_trace()
+        for idx in range(len(Wq_list)):
+            Wq_[0, idx] = self.vqaDict.word2idx[Wq_list[idx]]
+        answer=self.VQA_E[index]['multiple_choice_answer']
+        answer=self.ans2label[answer]
+        explanation=self.VQA_E[index]['explanation'][0]
+        Wc_list=word_tokenize(explanation)
+        Wc_=torch.cuda.LongTensor(1,self.captionMaxSeqLength).fill_(2) # <'end'>
+        Wc_[0,0]=1 # <'start'>
+        pdb.set_trace()
+        for idx in range(1,len(Wc_list)):
+            Wc_[0, idx] = self.capVoc.word2idx[Wc_list[idx]]
+
+        return Wq_, Wc_, answer # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+
+    def __len__(self):
+        return len(self.VQA_E)

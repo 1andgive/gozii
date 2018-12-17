@@ -43,7 +43,7 @@ class Encoder_HieStackedCorr(nn.Module):
         self.act_Lrelu = nn.LeakyReLU()
     def forward(self, Vmat, t_method='mean', model_num=1):
         assert t_method in ['mean', 'uncorr']
-        assert model_num in [1,2,3,4]
+        assert model_num in [1,2,3,4,5,6]
 
         if(model_num==1):
             if(t_method == 'mean'):
@@ -65,17 +65,25 @@ class Encoder_HieStackedCorr(nn.Module):
                 features = self.bn(self.linear(self.MeanVmat(Vmat)))
             elif (t_method == 'uncorr'):
                 features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_Lrelu(Vmat))))
+        elif (model_num == 5):
+            if (t_method == 'mean'):
+                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+            elif (t_method == 'uncorr'):
+                features = self.bn(self.linear(self.MeanVmat(self.UnCorrelatedResidualHierarchy(10,Vmat))))
+        elif (model_num == 6):
+            if (t_method == 'mean'):
+                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+            elif (t_method == 'uncorr'):
+                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_Detail(Vmat))))
 
         return features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
         ##building Un-Correlated Residual Hierarchy for Visual Matrix
         num_batches = Vmat.size(0)
-        num_objects = Vmat.size(1)
-        Umat = torch.zeros(num_batches, num_objects, num_objects).cuda()  # initial Umat = zero matrix
 
         for i in range(num_stages):
-            Vmat = Vmat + torch.matmul(Umat, Vmat)  # Vmat = V' (transposed version of V
+
             psi = torch.matmul(Vmat, torch.transpose(Vmat, 1, 2))
 
             Diag_Tensor = torch.zeros(num_batches, psi.size(1)).cuda()
@@ -83,8 +91,8 @@ class Encoder_HieStackedCorr(nn.Module):
                 Diag_Tensor[k] = torch.rsqrt(torch.diag(psi[k]) + 1e-6)
             Corr = Diag_Tensor.unsqueeze(1) * psi * Diag_Tensor.unsqueeze(2)
             Umat = 1 - Corr
-        v_final = torch.sum(Vmat, 1) / num_objects
-        return v_final
+            Vmat = Vmat + torch.matmul(Umat, Vmat)  # Vmat = V' (transposed version of V
+        return Vmat
 
     def MeanVmat(self,Vmat):
         v_final=torch.mean(Vmat,1)
@@ -104,9 +112,15 @@ class Encoder_HieStackedCorr(nn.Module):
 
     def UnCorrVmat_Detail(self,Vmat):
         #pdb.set_trace()
-        RightUnCorr=self.act_tanh(self.linear_U1(Vmat))
-        LeftUnCorr = self.act_tanh(self.linear_U2(Vmat))
-        UnCorr=1+torch.eye(Vmat.size(1))+torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
+        num_batches = Vmat.size(0)
+        RightUnCorr=self.act_relu(self.linear_U1(Vmat))
+        LeftUnCorr = self.act_relu(self.linear_U2(Vmat))
+        UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
+        Diag_Tensor = torch.zeros(num_batches, UnCorr.size(1)).cuda()
+        for k in range(num_batches):
+            Diag_Tensor[k] = torch.rsqrt(torch.diag(UnCorr[k]) + 1e-6)
+        UnCorr = Diag_Tensor.unsqueeze(1) * UnCorr * Diag_Tensor.unsqueeze(2)
+        UnCorr=1+torch.eye(Vmat.size(1)).cuda()-UnCorr
 
         return torch.matmul(UnCorr, Vmat)
 

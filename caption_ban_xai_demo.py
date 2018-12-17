@@ -107,7 +107,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
         fig = plt.figure(figsize=(19, 19))
         plt.imshow(get_image(i[0].item(),Dict_qid2vid))
         plt.show(block=False)
-        plt.pause(3)
+        plt.pause(5)
         plt.close()
         q_string = input('Type Question (max word = 14): ')
         Wq_=torch.cuda.LongTensor(1,14).fill_(19901)
@@ -134,6 +134,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
                 img_list.append(get_image(i[idx2].item(),Dict_qid2vid))
                 question_list.append(get_question(q.data[idx2],dataloader))
                 if (s_method_ == 'BestOne'):
+                    pdb.set_trace()
                     caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
                                range(generated_captions.size(1))]
                     captions_list.append(caption)

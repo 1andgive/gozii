@@ -142,7 +142,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
         elif (s_method_ == 'BeamSearch'):
             tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
                                     captions_list[:len(generated_captions)], RelScore, display=False, NumBeams=len(generated_captions))
-        plt.savefig(os.path.join(save_fig_loc,t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
+        plt.savefig(os.path.join(save_fig_loc,'model{}'.format(args.model_num),t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
         plt.close(tmp_fig)
 
     bar.update(idx)
@@ -362,8 +362,8 @@ if __name__ == '__main__':
 
         #Concatenate Encoder-Decoder to model and check whether the model generates correct captions based on visual cues
 
-        if not os.path.exists(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method)):
-            os.makedirs(os.path.join(args.save_fig_loc,args.t_method,args.x_method,args.s_method))
+        if not os.path.exists(os.path.join(args.save_fig_loc,'model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)):
+            os.makedirs(os.path.join(args.save_fig_loc,'model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
         check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab,args.save_fig_loc,args.x_method, args.t_method, args.s_method)
 
         ################################################################################################################
