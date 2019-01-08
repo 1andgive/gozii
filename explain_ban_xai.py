@@ -56,7 +56,7 @@ def parse_args():
     parser.add_argument('--hidden_size_BAN', type=int, default=1280, help='dimension of GRU hidden states in BAN')
     parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
-    parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_explain/')
+    parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_explain2/')
     parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
     parser.add_argument('--t_method', type=str, default='uncorr') # mean, uncorr
     parser.add_argument('--s_method', type=str, default='BestOne') # BestOne, BeamSearch
@@ -331,7 +331,7 @@ if __name__ == '__main__':
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
     caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size,
-                                     eval_dset.num_ans_candidates).to(device)
+                                     eval_dset.num_ans_candidates,bidirectional_=True).to(device)
     guide = GuideVfeat(args.hidden_size_BAN, 2048, args.hidden_size).to(device)
 
     def process(args, model, eval_loader,Dict_qid2vid):

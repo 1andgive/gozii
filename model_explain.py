@@ -132,16 +132,31 @@ def Relev_Check_by_IDX(CaptionIDX,QuestionIDX,AnswerIDX,W_Emb,Dict_AC_2_Q):
 
 
 class CaptionEncoder(nn.Module):
-    def __init__(self,embed_size, hidden_size, c_hidden_size, num_class, low_rank=256,num_layers=1):
+    def __init__(self,embed_size, hidden_size, c_hidden_size, num_class, low_rank=256, doubly_low_rank=256,num_layers=1, bidirectional_=False):
         super(CaptionEncoder,self).__init__()
         self.hidden_size=hidden_size
-        self.lstm_=nn.LSTM(embed_size,c_hidden_size,num_layers,batch_first=True) # word embedding to hidden size mapping, hidden size == q_embedding size
+        self.embed_size=embed_size
+        self.c_hidden_size=c_hidden_size
+        self.lstm_=nn.LSTM(embed_size,c_hidden_size,num_layers,batch_first=True,bidirectional=bidirectional_) # word embedding to hidden size mapping, hidden size == q_embedding size
         self.P = weight_norm(nn.Linear(low_rank,num_class))
         self.U = weight_norm(nn.Linear(hidden_size, low_rank))
-        self.V = weight_norm(nn.Linear(c_hidden_size, low_rank))
+        if bidirectional_:
+            self.V = weight_norm(nn.Linear(2*c_hidden_size, low_rank))
+        else:
+            self.V = weight_norm(nn.Linear(c_hidden_size, low_rank))
+        self.U2 = weight_norm(nn.Linear(hidden_size, doubly_low_rank))
+        if bidirectional_:
+            self.V2 = weight_norm(nn.Linear(2*c_hidden_size, doubly_low_rank))
+        else:
+            self.V2 = weight_norm(nn.Linear(c_hidden_size, doubly_low_rank))
         self.W = weight_norm(nn.Linear(c_hidden_size, num_class))
+        self.T=weight_norm(nn.Linear(hidden_size,2*c_hidden_size))
         self.act_relu = nn.ReLU()
+        self.p_=nn.Parameter(torch.Tensor(1,1,1,low_rank).normal_())
+        self.p_bias=nn.Parameter(torch.Tensor(1,1,1,1).normal_())
+        self.p2c=weight_norm(nn.Linear(doubly_low_rank,num_class))
         self.softmax=nn.Softmax(dim=1)
+        self.dropout = nn.Dropout(0.5)  # attention
 
     def forward(self, input_embeddings, states):
 
@@ -157,6 +172,42 @@ class CaptionEncoder(nn.Module):
 
         outputs = self.softmax(Emb.squeeze())
         return outputs
+
+
+    def forward_CL_ATT(self,Q_emb, C_emb):
+        right_ =self.act_relu(self.V(C_emb)).unsqueeze(1) # [b x 1 x phi x K] phi= number of words sequence in caption
+        left_ = self.act_relu(self.U(Q_emb)).unsqueeze(1) # [b x 1 x psi x K] psi= number of words sequence in question
+        left_=self.dropout(left_*self.p_) # [b x 1 x psi x K]
+        Att_=torch.matmul(right_,torch.transpose(left_,2,3))+self.p_bias # [b x 1 x psi x phi]
+
+        Att_=self.softmax(self.act_relu(Att_))
+        left_=self.act_relu(self.U2(Q_emb))  # [b x phi x K2]
+        right_=self.act_relu(self.V2(C_emb)) # [b x psi x K2]
+        left_=torch.transpose(left_,1,2).unsqueeze(3) #[b x K2 x phi x 1]
+        right_ = torch.transpose(right_, 1, 2).unsqueeze(2) #[b x K2 x 1 x psi]
+        outputs=torch.matmul(torch.matmul(right_,Att_),left_)
+        outputs=outputs.squeeze()
+        outputs=outputs.unsqueeze(1)
+        outputs=self.act_relu(self.p2c(outputs))
+
+        outputs = self.softmax(outputs.squeeze())
+        return outputs
+
+    def forward_DoubleLSTM_initstate(self,Q_emb):
+
+        Emb_input =self.act_relu(self.T(Q_emb))
+        Emb_input=torch.transpose(Emb_input,0,1)
+
+        return [Emb_input[:,:,:self.c_hidden_size].contiguous(), Emb_input[:,:,self.c_hidden_size:].contiguous()]
+
+    def forward_DoubleLSTM_out(self,C_hidden):
+
+        outs=self.act_relu(self.W(C_hidden))
+        outs=self.softmax(outs.squeeze())
+
+        return outs
+
+
 
     def forward_DirectCL(self,Q_emb,WcMat):
 
@@ -210,7 +261,7 @@ class UNCorrXAI(nn.Module):
         self.Guide=Guide # GuideVfeat
         self.softmax = nn.Softmax(dim=1)
 
-    def forward(self,v,b,q, t_method='mean',x_method='sum', s_method='BestOne', model_num= 1, flag='fix_guide', is_Init=False):
+    def forward(self,v,b,q, t_method='mean',x_method='sum', s_method='BestOne', model_num= 1, flag='fix_guide', is_Init=False, is_Attention=False):
         assert flag in ['fix_guide', 'fix_cap_enc']
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -282,7 +333,8 @@ class UNCorrXAI(nn.Module):
             elif (t_method == 'uncorr'):
                 x_ = Enc.MeanVmat(Enc.UnCorrVmat_Lrelu(atted_v_feats))
 
-        q_emb=self.BAN.module.extractQEmb(q)
+        q_embs=self.BAN.module.extractQEmb(q)
+        q_emb = q_embs[:, -1, :]
         q_emb=q_emb.unsqueeze(1)
 
         if (is_Init):
@@ -296,52 +348,76 @@ class UNCorrXAI(nn.Module):
 
         # We don't train Decoder part!!
 
-        ################################################################################################################
-        # 1. Fixing Guide. Input to <Enc-Class> is embedding of discrete word
-
-        if (flag == 'fix_guide'):
-            states=None
-            states2=None
-            Dec=self.decoder
-            Cap_Enc = self.CaptionEncoder
-            inputs = encoded_feats.unsqueeze(1)
-            sampled_ids = []
-            for i in range(Dec.max_seg_length):
-                hiddens, states = Dec.lstm(inputs, states)  # hiddens: (batch_size, 1, hidden_size)
-
-                outputs = Dec.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
-                _, predicted = outputs.max(1)  # predicted: (batch_size)
-                inputs = Dec.embed(predicted)  # inputs: (batch_size, embed_size)
-                sampled_ids.append(predicted)
-                inputs = inputs.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
-                hiddens2, states2 = Cap_Enc(inputs,states2)
-
-            sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
-
-
-            return logits, Cap_Enc.forward_CL(q_emb,hiddens2), sampled_ids
-
-        ################################################################################################################
-        # 2. Fixing Encoder-Class. Input to <Enc-Class> is Expectation of embedding
-
-        elif (flag == 'fix_cap_enc'):
+        if (is_Attention):
+            # 2. Fixing Encoder-Class. Input to <Enc-Class> is Expectation of embedding
             states = None
             states2 = None
             Dec = self.decoder
             Cap_Enc = self.CaptionEncoder
             inputs = encoded_feats.unsqueeze(1)
-            Embed_Table=Dec.embed(torch.cuda.LongTensor([ii for ii in range(Dec.vocab_size)]))
-            Embed_Table=Embed_Table.unsqueeze(0)
+            Embed_Table = Dec.embed(torch.cuda.LongTensor([ii for ii in range(Dec.vocab_size)]))
+            Embed_Table = Embed_Table.unsqueeze(0)
+            input_list = []
             for i in range(Dec.max_seg_length):
                 hiddens, states = Dec.lstm(inputs, states)  # hiddens: (batch_size, 1, hidden_size)
 
                 outputs = Dec.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
                 ProbMF = self.softmax(outputs)  # Probability Mass Function of Words, (batch_size, vocab_size)
-                Expected_Emb = torch.mean(ProbMF.unsqueeze(2)*Embed_Table,1)
-                inputs = Expected_Emb.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
-                hiddens2, states2 = Cap_Enc(inputs, states2)
+                Expected_Emb = torch.mean(ProbMF.unsqueeze(2) * Embed_Table, 1)
+                input_list.append(Expected_Emb)  # inputs: (batch_size, 1, embed_size))
 
-            return logits, Cap_Enc.forward_CL(q_emb,hiddens2), L0_guide, L2_guide
+            inputs = torch.stack(input_list, 1)
+            hiddens, _ = Cap_Enc(inputs, None)
+            return logits, Cap_Enc.forward_CL_ATT(q_embs, hiddens), L0_guide, L2_guide
+
+        else:
+
+            ################################################################################################################
+            # 1. Fixing Guide. Input to <Enc-Class> is embedding of discrete word
+
+            if (flag == 'fix_guide'):
+                states=None
+                states2=None
+                Dec=self.decoder
+                Cap_Enc = self.CaptionEncoder
+                inputs = encoded_feats.unsqueeze(1)
+                sampled_ids = []
+                for i in range(Dec.max_seg_length):
+                    hiddens, states = Dec.lstm(inputs, states)  # hiddens: (batch_size, 1, hidden_size)
+
+                    outputs = Dec.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
+                    _, predicted = outputs.max(1)  # predicted: (batch_size)
+                    inputs = Dec.embed(predicted)  # inputs: (batch_size, embed_size)
+                    sampled_ids.append(predicted)
+                    inputs = inputs.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
+                    hiddens2, states2 = Cap_Enc(inputs,states2)
+
+                sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
+
+
+                return logits, Cap_Enc.forward_CL(q_emb,hiddens2), sampled_ids
+
+            ################################################################################################################
+            # 2. Fixing Encoder-Class. Input to <Enc-Class> is Expectation of embedding
+
+            elif (flag == 'fix_cap_enc'):
+                states = None
+                states2 = None
+                Dec = self.decoder
+                Cap_Enc = self.CaptionEncoder
+                inputs = encoded_feats.unsqueeze(1)
+                Embed_Table=Dec.embed(torch.cuda.LongTensor([ii for ii in range(Dec.vocab_size)]))
+                Embed_Table=Embed_Table.unsqueeze(0)
+                for i in range(Dec.max_seg_length):
+                    hiddens, states = Dec.lstm(inputs, states)  # hiddens: (batch_size, 1, hidden_size)
+
+                    outputs = Dec.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
+                    ProbMF = self.softmax(outputs)  # Probability Mass Function of Words, (batch_size, vocab_size)
+                    Expected_Emb = torch.mean(ProbMF.unsqueeze(2)*Embed_Table,1)
+                    inputs = Expected_Emb.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)
+                    hiddens2, states2 = Cap_Enc(inputs, states2)
+
+                return logits, Cap_Enc.forward_CL(q_emb,hiddens2), L0_guide, L2_guide
 
     def Explain(self, v, b, q, t_method='mean', x_method='sum', s_method='BestOne', model_num=1):
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
@@ -416,6 +492,7 @@ class UNCorrXAI(nn.Module):
                 x_ = Enc.MeanVmat(Enc.UnCorrVmat_Lrelu(atted_v_feats))
 
         q_emb=self.BAN.module.extractQEmb(q)
+        q_emb=q_emb[:,-1,:]
         q_emb=q_emb.unsqueeze(1)
 
 

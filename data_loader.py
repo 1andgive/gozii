@@ -249,24 +249,44 @@ class VQA_E_loader(data.Dataset):
         self.captionMaxSeqLength=captionMaxSeqLength
         ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
         self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
+        self.num_ans_candidates=len(self.ans2label)
 
     def __getitem__(self, index):
-        pdb.set_trace()
+        answer = self.VQA_E[index]['multiple_choice_answer']
+        if answer in self.ans2label.keys():
+            answer = self.ans2label[answer]
+        else:
+            answer = 545  # self.ans2label['unknown'] ==> 545
         question=self.VQA_E[index]['question'][:-1].lower()
         Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
         Wq_list = word_tokenize(question)
-        pdb.set_trace()
-        for idx in range(len(Wq_list)):
-            Wq_[0, idx] = self.vqaDict.word2idx[Wq_list[idx]]
-        answer=self.VQA_E[index]['multiple_choice_answer']
-        answer=self.ans2label[answer]
+        if len(Wq_list) <= 14:
+            for idx in range(len(Wq_list)):
+                if Wq_list[idx] in self.vqaDict.word2idx.keys():
+                    Wq_[0, idx] = self.vqaDict.word2idx[Wq_list[idx]]
+                else:
+                    Wq_ = torch.cuda.LongTensor(1, 14).fill_(0)
+                    answer = 545  # self.ans2label['unknown'] ==> 545
+        else:
+            Wq_ = torch.cuda.LongTensor(1, 14).fill_(0)
+            answer = 545  # self.ans2label['unknown'] ==> 545
+
+
         explanation=self.VQA_E[index]['explanation'][0]
         Wc_list=word_tokenize(explanation)
         Wc_=torch.cuda.LongTensor(1,self.captionMaxSeqLength).fill_(2) # <'end'>
+
         Wc_[0,0]=1 # <'start'>
-        pdb.set_trace()
-        for idx in range(1,len(Wc_list)):
-            Wc_[0, idx] = self.capVoc.word2idx[Wc_list[idx]]
+        if len(Wc_list) <=self.captionMaxSeqLength-1:
+            for idx in range(1,len(Wc_list)):
+                if Wc_list[idx] in self.capVoc.word2idx.keys():
+                    Wc_[0, idx] = self.capVoc.word2idx[Wc_list[idx]]
+                else:
+                    Wc_=torch.cuda.LongTensor(1,self.captionMaxSeqLength).fill_(0) # <'end'>
+                    answer = 545  # self.ans2label['unknown'] ==> 545
+        else:
+            Wc_ = torch.cuda.LongTensor(1, self.captionMaxSeqLength).fill_(0)  # <'end'>
+            answer = 545  # self.ans2label['unknown'] ==> 545
 
         return Wq_, Wc_, answer # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
 

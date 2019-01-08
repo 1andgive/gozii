@@ -54,7 +54,7 @@ class Encoder_HieStackedCorr(nn.Module):
             if (t_method == 'mean'):
                 features = self.bn(self.linear(self.SumVmat(Vmat)))
             elif (t_method == 'uncorr'):
-                features = self.bn(self.linear(self.SumVmat(self.UnCorrVmat(Vmat))))
+                features = self.bn(self.linear(self.SumVmat(self.UnCorrVmat(Vmat)))) 
         elif(model_num==3):
             if (t_method == 'mean'):
                 features = self.bn(self.linear(self.MeanVmat(Vmat)))

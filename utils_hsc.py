@@ -23,3 +23,13 @@ def save_xai_module(path, CaptionEnc, Guide, epoch, optimizer=None):
         model_dict['optimizer2_state'] = optimizer[1].state_dict()
 
     torch.save(model_dict, path)
+
+def save_ce_module(path, CaptionEnc, epoch, optimizer=None):
+    model_dict = {
+            'epoch': epoch,
+            'CaptionEnc_state': CaptionEnc.state_dict()
+        }
+    if optimizer is not None:
+        model_dict['optimizer1_state'] = optimizer.state_dict()
+
+    torch.save(model_dict, path)

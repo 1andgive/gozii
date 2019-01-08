@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -68,7 +68,9 @@ def parse_args():
     parser.add_argument('--num_epoch', type=int, default=13)
     parser.add_argument('--RelScoreThres', type=float, default=0.7)
     parser.add_argument('--CheckConverges', type=bool, default=False)
-    parser.add_argument('--lambda_', type=float, default=0.0001)
+    parser.add_argument('--model_num_CE', type=int, default=1, help='model number of caption encoder')
+    parser.add_argument('--model_ce_epoch', type=int, default=348, help='epoch # of caption encoder')
+    parser.add_argument('--lambda_', type=float, default=0.00001)
     parser.add_argument('--alpha_', type=float, default=0.85)
     args = parser.parse_args()
     return args
@@ -135,39 +137,55 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             uncorr_xai.CaptionEncoder.zero_grad()
             uncorr_xai.Guide.zero_grad()
 
-            if (epoch % 2 == 0):
-                requires_grad_Switch(uncorr_xai.CaptionEncoder,isTrain=True)
-                requires_grad_Switch(uncorr_xai.Guide, isTrain=False)
-            else:
-                requires_grad_Switch(uncorr_xai.CaptionEncoder, isTrain=False)
-                requires_grad_Switch(uncorr_xai.Guide, isTrain=True)
+            # if (epoch % 2 == 0):
+            #     requires_grad_Switch(uncorr_xai.CaptionEncoder,isTrain=True)
+            #     requires_grad_Switch(uncorr_xai.Guide, isTrain=False)
+            # else:
+            #     requires_grad_Switch(uncorr_xai.CaptionEncoder, isTrain=False)
+            #     requires_grad_Switch(uncorr_xai.Guide, isTrain=True)
 
 
 
 
-            if(epoch % 2 == 0):
-                logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
-            else:
-                logits, outputs, L0_norm_guide, L2_norm_guide =uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
+            # if(epoch % 2 == 0):
+            #     logits, outputs, captions=uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_guide', is_Init=is_Init)
+            # else:
+            #     logits, outputs, L0_norm_guide, L2_norm_guide =uncorr_xai(v, b, q, t_method=args.t_method, x_method=args.x_method, s_method=args.s_method, model_num=args.model_num, flag='fix_cap_enc', is_Init=is_Init)
 
+            ############################################################################################################
+            # Pre-trained Cap-encoder
+            requires_grad_Switch(uncorr_xai.CaptionEncoder, isTrain=False)
+            requires_grad_Switch(uncorr_xai.Guide, isTrain=True)
+            logits, outputs, L0_norm_guide, L2_norm_guide = uncorr_xai(v, b, q, t_method=args.t_method,
+                                                                       x_method=args.x_method, s_method=args.s_method,
+                                                                       model_num=args.model_num, is_Attention=True,
+                                                                       is_Init=False)
+
+            ############################################################################################################
 
             idx += batch_size
             answer_idx, label_from_vqa = get_answer(logits.data, vqa_loader)
 
             ############################################################################################################
             # Relevance Score
-            if (epoch % 2 == 0):
-                with torch.no_grad():
-                    RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
-                    RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
-                outputs = outputs[RelevantIDX]
-                answer_idx = answer_idx[RelevantIDX]
+            # if (epoch % 2 == 0):
+            #     with torch.no_grad():
+            #         RelScoreTensor=Relev_Check_by_IDX(captions, q, answer_idx, uncorr_xai.BAN.module.w_emb,Dict_AC_2_Q)
+            #         RelevantIDX=torch.ge(RelScoreTensor,args.RelScoreThres)
+            #     outputs = outputs[RelevantIDX]
+            #     answer_idx = answer_idx[RelevantIDX]
 
             ############################################################################################################
 
             Loss = criterion(outputs, answer_idx)
-            if (epoch % 2 != 0):
-                Loss = Loss + args.lambda_*(args.alpha_*L0_norm_guide - (1-args.alpha_) * L2_norm_guide)
+
+            # if (epoch % 2 != 0):
+            #     Loss = Loss + args.lambda_*(args.alpha_*L0_norm_guide - (1-args.alpha_) * L2_norm_guide)
+
+            ############################################################################################################
+            # Loss for Guide training
+            #Loss = Loss + args.lambda_ * (args.alpha_ * L0_norm_guide - (1 - args.alpha_) * L2_norm_guide)
+            ############################################################################################################
 
 
             Loss.backward()
@@ -280,7 +298,7 @@ if __name__ == '__main__':
     ################################################################################################################
     # implement these in model.py
 
-    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size, vqa_dset.num_ans_candidates).to(device)
+    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size, vqa_dset.num_ans_candidates, bidirectional_=True).to(device)
     guide=GuideVfeat(args.hidden_size_BAN, 2048, args.hidden_size).to(device)
 
 
@@ -312,11 +330,17 @@ if __name__ == '__main__':
         print('loading hsc(attention caption) %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)
 
+        model_ce_path = os.path.join('model_xai',  'caption_encoder','model{}'.format(args.model_num_CE),'ce-{}-Final.pth'.format(args.model_ce_epoch))
+        print('loading caption encoder %s' % model_ce_path)
+        model_ce_data = torch.load(model_ce_path)
+
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
 
         model = nn.DataParallel(model).cuda()
         model.load_state_dict(model_data.get('model_state', model_data))
+
+        caption_encoder.load_state_dict(model_ce_data['CaptionEnc_state'])
 
         #pdb.set_trace()
 

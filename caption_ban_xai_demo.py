@@ -103,63 +103,62 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     for v, b, _, i in iter(dataloader):
         bar.update(idx)
         batch_size = v.size(0)
+        for trial_ in range(2):
+            fig = plt.figure(figsize=(19, 19))
+            plt.imshow(get_image(i[0].item(),Dict_qid2vid))
+            plt.show(block=False)
+            plt.pause(5)
+            plt.close()
+            q_string = input('Type Question (max word = 14): ')
+            Wq_=torch.cuda.LongTensor(1,14).fill_(19901)
+            Wq_list = word_tokenize(q_string)
+            for idx3 in range(len(Wq_list)):
+                Wq_[0,idx3]=dataloader.dataset.dictionary.word2idx[Wq_list[idx3]]
+            q = Wq_
 
-        fig = plt.figure(figsize=(19, 19))
-        plt.imshow(get_image(i[0].item(),Dict_qid2vid))
-        plt.show(block=False)
-        plt.pause(5)
-        plt.close()
-        q_string = input('Type Question (max word = 14): ')
-        Wq_=torch.cuda.LongTensor(1,14).fill_(19901)
-        Wq_list = word_tokenize(q_string)
-        for idx3 in range(len(Wq_list)):
-            Wq_[0,idx3]=dataloader.dataset.dictionary.word2idx[Wq_list[idx3]]
-        q = Wq_
 
 
+            with torch.no_grad():
+                v = Variable(v).cuda()
+                b = Variable(b).cuda()
+                q = Variable(q).cuda()
 
-        with torch.no_grad():
-            v = Variable(v).cuda()
-            b = Variable(b).cuda()
-            q = Variable(q).cuda()
+                generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
 
-            generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
-
-            idx += batch_size
-            img_list=[]
-            question_list=[]
-            answer_list=[]
-            captions_list=[]
-            for idx2 in range(len(i)):
-                img_list.append(get_image(i[idx2].item(),Dict_qid2vid))
-                question_list.append(get_question(q.data[idx2],dataloader))
-                if (s_method_ == 'BestOne'):
-                    pdb.set_trace()
-                    caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
-                               range(generated_captions.size(1))]
-                    captions_list.append(caption)
-                elif (s_method_ == 'BeamSearch'):
-                    for tmp_idx in range(generated_captions.size(0)):
-                        #pdb.set_trace()
-                        caption = [vocab.idx2word[generated_captions[tmp_idx][w_idx].item()] for w_idx in
+                idx += batch_size
+                img_list=[]
+                question_list=[]
+                answer_list=[]
+                captions_list=[]
+                for idx2 in range(len(i)):
+                    img_list.append(get_image(i[idx2].item(),Dict_qid2vid))
+                    question_list.append(get_question(q.data[idx2],dataloader))
+                    if (s_method_ == 'BestOne'):
+                        caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
                                    range(generated_captions.size(1))]
                         captions_list.append(caption)
+                    elif (s_method_ == 'BeamSearch'):
+                        for tmp_idx in range(generated_captions.size(0)):
+                            #pdb.set_trace()
+                            caption = [vocab.idx2word[generated_captions[tmp_idx][w_idx].item()] for w_idx in
+                                       range(generated_captions.size(1))]
+                            captions_list.append(caption)
 
-                answer_list.append(get_answer(logits.data[idx2], dataloader))
+                    answer_list.append(get_answer(logits.data[idx2], dataloader))
 
-        caption_=captions_list[0]
-        RelScore=Relev_Check(captions_list[0], q, answer_list[0], caption_generator.BAN.module.w_emb, dataloader.dataset.dictionary)
+            caption_=captions_list[0]
+            RelScore=Relev_Check(captions_list[0], q, answer_list[0], caption_generator.BAN.module.w_emb, dataloader.dataset.dictionary)
 
-        if RelScore is None:
-            continue
+            if RelScore is None:
+                continue
 
-        if (s_method_ == 'BestOne'):
-            tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], RelScore,display=True)
-        elif (s_method_ == 'BeamSearch'):
-            tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
-                                    captions_list[:len(generated_captions)], RelScore, display=True, NumBeams=len(generated_captions))
-        plt.savefig(os.path.join(save_fig_loc,t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
-        plt.close()
+            if (s_method_ == 'BestOne'):
+                tmp_fig=showAttention(question_list[0],img_list[0],answer_list[0],att[0,:,:,:],b[0,:,:4], captions_list[0], RelScore,display=True)
+            elif (s_method_ == 'BeamSearch'):
+                tmp_fig = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
+                                        captions_list[:len(generated_captions)], RelScore, display=True, NumBeams=len(generated_captions))
+            plt.savefig(os.path.join(save_fig_loc,t_method_, x_method_, s_method_, '{}.png'.format(i.item())))
+            plt.close()
 
     bar.update(idx)
 
@@ -183,10 +182,10 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
     fig.text(0.2, 0.95, input_question, ha='center', va='center', fontsize=20)
 
     Answer='Answer : {}'.format(output_answer)
-    fig.text(0.2, 0.90, Answer, ha='center', va='center',fontsize=20)
+    fig.text(0.5, 0.95, Answer, ha='center', va='center',fontsize=20)
 
-    Answer = 'RelScore : {}'.format(round(RelScore,4))
-    fig.text(0.8, 0.95, Answer, ha='center', va='center', fontsize=20)
+    #Answer = 'RelScore : {}'.format(round(RelScore,4))
+    #fig.text(0.8, 0.95, Answer, ha='center', va='center', fontsize=20)
 
 
     x_caption = ''
