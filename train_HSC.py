@@ -140,7 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--LRdim', type=int, default=64)
-    parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--model_num', type=int, default=7)
     args = parser.parse_args()
     print(args)
     main(args)

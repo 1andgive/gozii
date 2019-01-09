@@ -92,7 +92,7 @@ def showPlot(points):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
-def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_loc,x_method_, t_method_, s_method_):
+def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_loc,x_method_, t_method_, s_method_, args_):
     N = len(dataloader.dataset)
     M = dataloader.dataset.num_ans_candidates
     pred = torch.FloatTensor(N, M).zero_()
@@ -108,7 +108,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
-            generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
+            generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_, model_num=args_.model_num)
 
             idx += batch_size
             img_list=[]
@@ -323,8 +323,8 @@ if __name__ == '__main__':
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
 
-
-    encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
+    # Build the models
+    encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
 
     def process(args, model, eval_loader,Dict_qid2vid):
@@ -364,7 +364,7 @@ if __name__ == '__main__':
 
         if not os.path.exists(os.path.join(args.save_fig_loc,'model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)):
             os.makedirs(os.path.join(args.save_fig_loc,'model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
-        check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab,args.save_fig_loc,args.x_method, args.t_method, args.s_method)
+        check_captions(caption_generator, eval_loader, Dict_qid2vid,vocab,args.save_fig_loc,args.x_method, args.t_method, args.s_method, args)
 
         ################################################################################################################
 

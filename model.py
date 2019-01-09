@@ -193,6 +193,23 @@ class DecoderRNN(nn.Module):
         sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
 
+    def sample2(self, features, states=None):
+        """Generate captions for given image features using greedy search."""
+        sampled_ids = []
+        features = features.unsqueeze(0)
+        states=[features, features]
+        pdb.set_trace()
+        inputs=self.embed(torch.ones(features.size(0)))
+        for i in range(self.max_seg_length):
+            hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
+            outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
+            _, predicted = outputs.max(1)                        # predicted: (batch_size)
+            sampled_ids.append(predicted)
+            inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
+            inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
+        sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
+        return sampled_ids
+
     def BeamSearch(self, features, states=None, NumBeams=5):
         """Generate captions for given image features using greedy search."""
         num_batches=features.size(0)
@@ -257,15 +274,19 @@ class BAN_HSC(nn.Module):
         self.BAN=BAN
         self.encoder=encoder
         self.decoder=decoder
-    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
+    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 
         encoded_features, logits, att=self.forward( v, b, q , t_method=t_method, x_method=x_method, s_method=s_method)
 
+
         if(s_method == 'BestOne'):
-            Generated_Captions=self.decoder.sample(encoded_features)
+            if (model_num < 7):
+                Generated_Captions=self.decoder.sample(encoded_features)
+            else:
+                Generated_Captions = self.decoder.sample2(encoded_features)
         elif(s_method == 'BeamSearch'):
             Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 
