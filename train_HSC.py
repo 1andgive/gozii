@@ -46,7 +46,7 @@ def main(args):
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
 
     # Build the models
-    encoder = Encoder_HieStackedCorr(args.embed_size,2048,LRdim=args.LRdim).to(device)
+    encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
 
 
@@ -73,17 +73,25 @@ def main(args):
         for i, (features, spatials, captions, lengths) in enumerate(data_loader):
             
             # Set mini-batch dataset
-
+            if(args.model_num > 6):
+                lengths[:]=[x-1 for x in lengths] #어차피 <sos> 나 <eos> 둘중 하나는 양쪽 (target, input)에서 제거된다.
+                targets = pack_padded_sequence(captions[:, 1:], lengths, batch_first=True)[0]
+            else:
+                targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
             features = features.cuda()
             captions = captions.cuda()
+            targets=targets.cuda()
 
-            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
-            
+
+
+
+
             # Forward, backward and optimize
             features_encoded = encoder(features,t_method=args.t_method,model_num=args.model_num)
 
-            outputs = decoder(features_encoded, captions, lengths)
+            outputs = decoder(features_encoded, captions, lengths, model_num=args.model_num)
+
             loss = criterion(outputs, targets)
 
             decoder.zero_grad()

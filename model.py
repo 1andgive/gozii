@@ -30,10 +30,15 @@ class EncoderCNN(nn.Module):
         return features
 
 class Encoder_HieStackedCorr(nn.Module):
-    def __init__(self, embed_size, vdim, num_stages=5,LRdim=64):
+    def __init__(self, embed_size, vdim, model_num, num_stages=5,LRdim=64, hidden_size=512):
         super(Encoder_HieStackedCorr, self).__init__()
-        self.linear=nn.Linear(vdim,embed_size)
-        self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
+        if(model_num <= 6):
+            self.linear=nn.Linear(vdim,embed_size)
+            self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
+        else:
+            self.linear = nn.Linear(vdim, hidden_size)
+            self.bn = nn.BatchNorm1d(hidden_size, momentum=0.01)
+
         self.num_stages=num_stages
         self.lowRank_dim=LRdim
         self.linear_U1= weight_norm(nn.Linear(vdim,LRdim))
@@ -43,7 +48,9 @@ class Encoder_HieStackedCorr(nn.Module):
         self.act_Lrelu = nn.LeakyReLU()
     def forward(self, Vmat, t_method='mean', model_num=1):
         assert t_method in ['mean', 'uncorr']
-        assert model_num in [1,2,3,4,5,6]
+        if(model_num > 6):
+            model_num=1
+        #assert model_num in [1,2,3,4,5,6]
 
         if(model_num==1):
             if(t_method == 'mean'):
@@ -75,7 +82,6 @@ class Encoder_HieStackedCorr(nn.Module):
                 features = self.bn(self.linear(self.MeanVmat(Vmat)))
             elif (t_method == 'uncorr'):
                 features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_Detail(Vmat))))
-
         return features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
@@ -143,7 +149,7 @@ class Encoder_HieStackedCorr(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=40):
         """Set the hyper-parameters and build the layers."""
         super(DecoderRNN, self).__init__()
         self.vocab_size=vocab_size
@@ -152,15 +158,25 @@ class DecoderRNN(nn.Module):
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seg_length = max_seq_length
         
-    def forward(self, features, captions, lengths):
+    def forward(self, features, captions, lengths, model_num=1):
         """Decode image feature vectors and generates captions."""
-        embeddings = self.embed(captions)
-        embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
 
-        packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
-        hiddens, _ = self.lstm(packed)
+
+        if model_num < 7:
+            embeddings = self.embed(captions)
+            embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
+
+            packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
+            hiddens, _ = self.lstm(packed)
+
+        elif (model_num == 7):
+            embeddings = self.embed(captions[:,:-1]) # input에서는 <eos>가 제거됨
+            packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
+            features=features.unsqueeze(0)
+            hiddens, _ = self.lstm(packed, [features,features])
+
+
         outputs = self.linear(hiddens[0]) #teacher forcing 방식
-        #pdb.set_trace()
         return outputs
     
     def sample(self, features, states=None):
