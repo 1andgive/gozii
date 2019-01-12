@@ -108,6 +108,8 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
+            pdb.set_trace()
+
             generated_captions, logits, att = caption_generator.generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_, model_num=args_.model_num)
 
             idx += batch_size
@@ -179,12 +181,14 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
             explain=explains[num_sen]
         else:
             explain=explains
-        if explain[0] == '<start>':
-            for i in explain[1:]:
-                if i != '<end>':
-                    x_caption=x_caption+' '+i
-                else:
-                    break
+        for word_ in explain:
+            if word_ == '<start>':
+                x_caption = ''
+            elif word_ == '<end>':
+                break
+            else:
+                x_caption = x_caption + ' ' + word_
+
         if (NumBeams > 1):
             x_caption=x_caption+'\n'
     Explain = 'Explain : {}'.format(x_caption)

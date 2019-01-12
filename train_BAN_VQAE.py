@@ -1,7 +1,3 @@
-# this script is to train an LSTM encoder such that VQA answer is predictable from Question-Explain pair.
-# We used Billinear Attention while training Q-E-A pair..
-# Experiment seems to fail
-
 import os
 import sys
 
@@ -11,22 +7,22 @@ import json
 import progressbar
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pack_padded_sequence
 
 import numpy as np
+
 from build_vocab import Vocabulary
 from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
-from model_explain import GuideVfeat, CaptionEncoder, Relev_Check_by_IDX, UNCorrXAI
-from nltk.tokenize import word_tokenize
+from model_VQAE import EnsembleVQAE
 import utils_hsc as utils_save
+
 
 sys.path.append('D:\\VQA\\BAN')
 
 import codes.base_model as base_model
-
 from codes.dataset import Dictionary, VQAFeatureDataset
 from model_explain import CaptionEncoder
-from data_loader import VQA_E_loader
+from data_loader import VQAE_FineTunning_loader
 import pickle
 import pdb
 
@@ -36,19 +32,19 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/VQA_E_vocab.pkl', help='path for VQA_E vocabulary wrapper')
     parser.add_argument('--vqa_E_train_path', type=str,
                         default='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json',
                         help='path for train annotation json file')
     parser.add_argument('--vqa_E_val_path', type=str,
                         default='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json',
                         help='path for validation annotation json file')
-    parser.add_argument('--batch_size', type=int, default=2048)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--hidden_size_BAN', type=int, default=1280, help='dimension of GRU hidden states in BAN')
     parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
-    parser.add_argument('--num_epoch',type=int,default=500)
+    parser.add_argument('--num_epoch',type=int,default=50)
     parser.add_argument('--split', type=str, default='train')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--epoch', type=int, default=12)
@@ -72,6 +68,16 @@ def requires_grad_Switch(module,isTrain=True):
     for p in module.parameters():
         p.requires_grad=isTrain
 
+def instance_bce_with_logits(logits, labels):
+    assert logits.dim() == 2
+
+    #pdb.set_trace()
+    loss = nn.functional.binary_cross_entropy_with_logits(logits, labels)
+    loss *= labels.size(1)
+    return loss
+
+
+
 if __name__ == '__main__':
     args = parse_args()
 
@@ -88,83 +94,58 @@ if __name__ == '__main__':
     dictionary_vqa = Dictionary.load_from_file('codes/tools/data/dictionary.pkl')
 
     with open(args.vocab_path, 'rb') as f:
-        vocab_caption = pickle.load(f)
+        vocab_VQAE = pickle.load(f)
 
-    vqa_E_train = json.load(open(args.vqa_E_train_path))
-    vqa_E_val = json.load(open(args.vqa_E_val_path))
 
-    #pdb.set_trace()
-
-    vqaE_dset = VQA_E_loader(vqa_E_train,vqa_E_val,dictionary_vqa,vocab_caption)
-    vqaE_loader = DataLoader(vqaE_dset, args.batch_size, shuffle=True, num_workers=0)
-
-    caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size,
-                                     vqaE_dset.num_ans_candidates,bidirectional_=True).to(device)
-
-    params1=caption_encoder.parameters()
-    optimizer1 = torch.optim.Adamax(params1, lr=args.learning_rate)
-
-    if not os.path.exists(os.path.join('model_xai', 'caption_encoder','model{}'.format(args.model_num_CE))):
-        os.makedirs(os.path.join('model_xai',  'caption_encoder','model{}'.format(args.model_num_CE)))
-
-    save_path = os.path.join('model_xai', 'caption_encoder')
+    vqaE_loader = VQAE_FineTunning_loader('train+val', dictionary_vqa, vocab_VQAE, args.batch_size, shuffle=True, num_workers=0)
+    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab_VQAE), args.num_layers).to(device)
 
     constructor = 'build_%s' % args.model
-    vqa_dset = VQAFeatureDataset(args.split, dictionary_vqa, adaptive=True)
-    model = getattr(base_model, constructor)(vqa_dset, args.num_hid, args.op, args.gamma).cuda()
+    model = getattr(base_model, constructor)(vqaE_loader.dataset.datasets[0], args.num_hid, args.op, args.gamma).cuda()
 
     model_path = args.input + '/model%s.pth' % \
                  ('' if 0 > args.epoch else '_epoch%d' % args.epoch)
-    print('loading vqa %s' % model_path)
+
+    print('loading %s' % model_path)
     model_data = torch.load(model_path)
+
     model = nn.DataParallel(model).cuda()
     model.load_state_dict(model_data.get('model_state', model_data))
 
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab_caption), args.num_layers).to(device)
-    if (args.t_method == 'mean'):
-        model_hsc_path = os.path.join(
-            args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
-            'model-{}-400.pth'.format(args.hsc_epoch))
-    else:
-        model_hsc_path = os.path.join(
-            args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
-            'model-{}-400.pth'.format(args.hsc_epoch))
+    ban_vqaE = EnsembleVQAE(model,decoder).to(device)
 
-    print('loading hsc(attention caption) %s' % model_hsc_path)
-    model_hsc_data = torch.load(model_hsc_path)
-    decoder.load_state_dict(model_hsc_data['decoder_state'])
+    params=ban_vqaE.parameters()
+    optimizer = torch.optim.Adamax(params, lr=args.learning_rate)
 
-    criterion = nn.CrossEntropyLoss()
+    if not os.path.exists(os.path.join('model_xai', 'vqaE')):
+        os.makedirs(os.path.join('model_xai', 'vqaE'))
 
-    requires_grad_Switch(model,isTrain=False)
-    requires_grad_Switch(decoder, isTrain=False)
+    save_path = os.path.join('model_xai', 'vqaE')
+
+
+    criterion_Explain = nn.CrossEntropyLoss()
+
+    requires_grad_Switch(model,isTrain=True)
+    requires_grad_Switch(decoder, isTrain=True)
 
     total_step = len(vqaE_loader)
 
     for epoch in range(args.num_epoch):
-        for i,(Wq,Wc,answer) in enumerate(vqaE_loader):
+        for i,(v, b, q, ans, captions, lengths) in enumerate(vqaE_loader):
 
-            caption_encoder.zero_grad()
+            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            v = v.cuda()
+            captions = captions.cuda()
+            targets = targets.cuda()
 
-            Wq=Wq.squeeze(1)
-            Wc=Wc.squeeze(1)
-            q_emb=model.module.extractQEmb(Wq)
-            #states=[None]
-            states=None
-            input_list=[]
-            for k in range(vqaE_dset.captionMaxSeqLength):
-                input_list.append(decoder.embed(Wc[:,k]))
-                #hiddens, states_tmp = caption_encoder(input_list[k], states[k])
-                #states.append(states_tmp)
-            inputs=torch.stack(input_list,1)
+            ban_vqaE.zero_grad()
 
-            hiddens, states = caption_encoder(inputs, states)
-            outs=caption_encoder.forward_CL_ATT(q_emb,hiddens)
+            preds, att, outputs = ban_vqaE(v, b, q, ans, captions, lengths)
             #outs=caption_encoder.forward_DoubleLSTM_out(hiddens)
-            answer=answer.cuda()
-            Loss = criterion(outs, answer)
+
+            Loss = criterion_Explain(outputs, targets) + instance_bce_with_logits(preds, ans)
             Loss.backward()
-            optimizer1.step()
+            optimizer.step()
 
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
@@ -172,15 +153,10 @@ if __name__ == '__main__':
 
         # Save the model checkpoints
         save_path = os.path.join(
-            'model_xai', 'caption_encoder', 'model{}'.format(args.model_num_CE), 'ce-{}-Final.pth'.format(epoch + 1))
+            'model_xai', 'vqaE', 'vqaE-{}-Final.pth'.format(epoch + 1))
         ####################################################################################################
         # implement utils.save_xai_model
 
-        utils_save.save_ce_module(save_path, caption_encoder, epoch, optimizer1)
+        utils_save.save_all_model(save_path, ban_vqaE, epoch, optimizer)
 
         ####################################################################################################
-
-
-
-
-

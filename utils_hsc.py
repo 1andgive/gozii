@@ -33,3 +33,13 @@ def save_ce_module(path, CaptionEnc, epoch, optimizer=None):
         model_dict['optimizer1_state'] = optimizer.state_dict()
 
     torch.save(model_dict, path)
+
+def save_all_model(path, model, epoch, optimizer=None):
+    model_dict = {
+            'epoch': epoch,
+            'model_state': model.state_dict()
+        }
+    if optimizer is not None:
+        model_dict['optimizer_state'] = optimizer.state_dict()
+
+    torch.save(model_dict, path)

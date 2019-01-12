@@ -170,6 +170,7 @@ class DecoderRNN(nn.Module):
             hiddens, _ = self.lstm(packed)
 
         elif (model_num == 7):
+            pdb.set_trace()
             embeddings = self.embed(captions[:,:-1]) # input에서는 <eos>가 제거됨
             packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
             features=features.unsqueeze(0)
@@ -198,8 +199,8 @@ class DecoderRNN(nn.Module):
         sampled_ids = []
         features = features.unsqueeze(0)
         states=[features, features]
-        pdb.set_trace()
-        inputs=self.embed(torch.ones(features.size(0)))
+        inputs=self.embed(torch.cuda.LongTensor([1]))
+        inputs = inputs.unsqueeze(1)
         for i in range(self.max_seg_length):
             hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
             outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)

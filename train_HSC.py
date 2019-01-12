@@ -64,10 +64,22 @@ def main(args):
     # Train the models
     total_step = len(data_loader)
 
+    epoch_start=0
+
+    if (args.checkpoint_dir != 'None'):
+        model_hsc_path = os.path.join(
+            args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
+            args.checkpoint_dir)
+        model_hsc_data=torch.load(model_hsc_path)
+        encoder.load_state_dict(model_hsc_data['encoder_state'])
+        decoder.load_state_dict(model_hsc_data['decoder_state'])
+        optimizer.load_state_dict(model_hsc_data['optimizer_state'])
+        epoch_start=model_hsc_data['epoch']
+
 
     if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim))):
         os.makedirs(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim)))
-    for epoch in range(args.num_epochs):
+    for epoch in range(epoch_start,args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
         for i, (features, spatials, captions, lengths) in enumerate(data_loader):
@@ -125,6 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--crop_size', type=int, default=224 , help='size for randomly cropping images')
     parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--image_dir', type=str, default='data/resized2014', help='directory for resized images')
+    parser.add_argument('--checkpoint_dir', type=str, default='None', help='loading from this checkpoint')
     parser.add_argument('--caption_path', type=str, default='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json', help='path for train annotation json file')
     parser.add_argument('--log_step', type=int , default=10, help='step size for prining log info')
     parser.add_argument('--save_step', type=int , default=200, help='step size for saving trained models')
@@ -140,7 +153,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--LRdim', type=int, default=64)
-    parser.add_argument('--model_num', type=int, default=7)
+    parser.add_argument('--model_num', type=int, default=1)
     args = parser.parse_args()
     print(args)
     main(args)

@@ -12,10 +12,13 @@ import torch.nn.functional as F
 import pdb
 import _pickle as cPickle
 import warnings
+import json
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=FutureWarning)
     import h5py
 from nltk.tokenize import word_tokenize
+from codes.dataset import VQAFeatureDataset
+from torch.utils.data import ConcatDataset
 
 
 
@@ -140,7 +143,7 @@ class BottomUp_CocoDataset(data.Dataset):
         return len(self.ids)
 
 
-def collate_fn(data):
+def collate_fn(data, use_VQAE=False, use_VQAX=False):
     """Creates mini-batch tensors from the list of tuples (image, caption).
     
     We should build custom collate_fn rather than using default collate_fn, 
@@ -159,7 +162,11 @@ def collate_fn(data):
     # Sort a data list by caption length (descending order).
     data.sort(key=lambda x: len(x[1]), reverse=True)
 
-    features, spatials, captions = zip(*data)
+    if (not(use_VQAE) and not(use_VQAX)):
+        features, spatials, captions = zip(*data)
+    elif(use_VQAE):
+        features, spatials, questions, answers, captions = zip(*data)
+
 
 
 
@@ -187,7 +194,14 @@ def collate_fn(data):
     new_targets=torch.stack(new_targets)
 
     #pdb.set_trace()
-    return new_features, new_spatials, new_targets, new_lengths
+    if (not (use_VQAE) and not (use_VQAX)):
+        return new_features, new_spatials, new_targets, new_lengths
+    elif(use_VQAE):
+        new_questions=[questions[idx] for idx in idcies]
+        new_answers=[answers[idx] for idx in idcies]
+        new_questions=torch.stack(new_questions)
+        new_answers=torch.stack(new_answers)
+        return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths
 
 def get_loader(root, json, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
@@ -239,17 +253,78 @@ def trim_collate(batch):
     return torch.stack([F.pad(x, (0, 0, 0, max_num_boxes - x.size(0))).data for x in batch], 0, out=out)
 
 
+
+
 class VQA_E_loader(data.Dataset):
     """VQA_E Dataset (VQA_E) compatible with torch.utils.data.DataLoader."""
 
-    def __init__(self,VQAE_train,VQAE_val,vqaDict,captionVcoab, captionMaxSeqLength=20,dataroot='codes\\tools\\data'):
-        self.VQA_E=VQAE_train+VQAE_val
-        self.vqaDict=vqaDict
-        self.capVoc=captionVcoab
-        self.captionMaxSeqLength=captionMaxSeqLength
+    def __init__(self, VQAE_train, VQAE_val, vqaDict, captionVcoab, captionMaxSeqLength=40,
+                 dataroot='codes\\tools\\data'):
+        self.VQA_E = VQAE_train + VQAE_val
+        self.vqaDict = vqaDict
+        self.capVoc = captionVcoab
+        self.captionMaxSeqLength = captionMaxSeqLength
         ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
         self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
-        self.num_ans_candidates=len(self.ans2label)
+        self.num_ans_candidates = len(self.ans2label)
+
+    def __getitem__(self, index):
+        answer = self.VQA_E[index]['multiple_choice_answer']
+        if answer in self.ans2label.keys():
+            answer = self.ans2label[answer]
+        else:
+            answer = 545  # self.ans2label['unknown'] ==> 545
+        question = self.VQA_E[index]['question'][:-1].lower()
+        Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+        Wq_list = word_tokenize(question)
+        if len(Wq_list) <= 14:
+            for idx in range(len(Wq_list)):
+                if Wq_list[idx] in self.vqaDict.word2idx.keys():
+                    Wq_[0, idx] = self.vqaDict.word2idx[Wq_list[idx]]
+                else:
+                    Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+                    answer = 545  # self.ans2label['unknown'] ==> 545
+        else:
+            Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+            answer = 545  # self.ans2label['unknown'] ==> 545
+
+        explanation = self.VQA_E[index]['explanation'][0]
+        Wc_list = word_tokenize(explanation.lower())
+        Wc_ = torch.cuda.LongTensor(1, self.captionMaxSeqLength).fill_(2)  # <'end'>
+
+        Wc_[0, 0] = 1  # <'start'>
+        if len(Wc_list) <= self.captionMaxSeqLength - 1:
+            for idx in range(1, len(Wc_list)):
+                if Wc_list[idx] in self.capVoc.word2idx.keys():
+                    Wc_[0, idx] = self.capVoc.word2idx[Wc_list[idx]]
+                else:
+                    Wc_ = torch.cuda.LongTensor(1, self.captionMaxSeqLength).fill_(0)  # <'pad'>
+                    answer = 545  # self.ans2label['unknown'] ==> 545
+        else:
+            Wc_ = torch.cuda.LongTensor(1, self.captionMaxSeqLength).fill_(0)  # <'pad'>
+            answer = 545  # self.ans2label['unknown'] ==> 545
+
+        return Wq_, Wc_, answer  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+
+    def __len__(self):
+        return len(self.VQA_E)
+
+
+class VQA_E_finetuning_Dataset(VQAFeatureDataset):
+    """VQA_E Dataset (VQA_E) compatible with torch.utils.data.DataLoader."""
+
+    def __init__(self,name,vqaDict, captionVcoab, dataroot='codes\\tools\\data', hdf5path='D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\hdf5',
+                 adaptive=True, vqa_E_train_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json',
+                 vqa_E_val_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json'):
+        assert name in ['train', 'val']
+        super(VQA_E_finetuning_Dataset,self).__init__(name,vqaDict,dataroot,hdf5path,adaptive)
+        if (name == 'train'):
+            self.VQA_E=json.load(open(vqa_E_train_path))
+        elif(name == 'val'):
+            self.VQA_E=json.load(open(vqa_E_val_path))
+
+        self.vqaDict=vqaDict
+        self.capVoc=captionVcoab
 
     def __getitem__(self, index):
         answer = self.VQA_E[index]['multiple_choice_answer']
@@ -265,30 +340,55 @@ class VQA_E_loader(data.Dataset):
                 if Wq_list[idx] in self.vqaDict.word2idx.keys():
                     Wq_[0, idx] = self.vqaDict.word2idx[Wq_list[idx]]
                 else:
-                    Wq_ = torch.cuda.LongTensor(1, 14).fill_(0)
+                    Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
                     answer = 545  # self.ans2label['unknown'] ==> 545
         else:
-            Wq_ = torch.cuda.LongTensor(1, 14).fill_(0)
+            Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
             answer = 545  # self.ans2label['unknown'] ==> 545
 
 
         explanation=self.VQA_E[index]['explanation'][0]
-        Wc_list=word_tokenize(explanation)
-        Wc_=torch.cuda.LongTensor(1,self.captionMaxSeqLength).fill_(2) # <'end'>
+        tokens=word_tokenize(explanation.lower())
+        Wc_list=[]
+        Wc_list.append(self.capVoc('<start>')) #<'start'>
+        Wc_list.extend([self.capVoc(token) for token in tokens])
+        Wc_list.append(self.capVoc('<end>'))
+        Wc_=torch.Tensor(Wc_list)
 
-        Wc_[0,0]=1 # <'start'>
-        if len(Wc_list) <=self.captionMaxSeqLength-1:
-            for idx in range(1,len(Wc_list)):
-                if Wc_list[idx] in self.capVoc.word2idx.keys():
-                    Wc_[0, idx] = self.capVoc.word2idx[Wc_list[idx]]
-                else:
-                    Wc_=torch.cuda.LongTensor(1,self.captionMaxSeqLength).fill_(0) # <'end'>
-                    answer = 545  # self.ans2label['unknown'] ==> 545
+
+        img_id=self.VQA_E[index]['img_id']
+        hdf_img_idx=self.img_id2idx[img_id]
+        self.features_hf=self.hf.get('image_features')
+        self.spatials_hf=self.hf.get('spatial_features')
+
+        if not self.adaptive:
+            features = torch.from_numpy(np.array(self.features_hf[hdf_img_idx]))
+            spatials = torch.from_numpy(np.array(self.spatials_hf[hdf_img_idx]))
         else:
-            Wc_ = torch.cuda.LongTensor(1, self.captionMaxSeqLength).fill_(0)  # <'end'>
-            answer = 545  # self.ans2label['unknown'] ==> 545
+            features=torch.from_numpy(
+                np.array(self.features_hf[self.pos_boxes[hdf_img_idx][0]:self.pos_boxes[hdf_img_idx][1],:]))
+            spatials=torch.from_numpy(
+                np.array(self.spatials_hf[self.pos_boxes[hdf_img_idx][0]:self.pos_boxes[hdf_img_idx][1],:]))
 
-        return Wq_, Wc_, answer # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+        target = torch.zeros(self.num_ans_candidates)
+        if answer is not None:
+            target.scatter_(0, torch.LongTensor([answer]), 1)
+
+        return features, spatials, Wq_, target.cuda(), Wc_  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
 
     def __len__(self):
         return len(self.VQA_E)
+
+
+def VQAE_FineTunning_loader(name, dictionary_vqa, vocab_VQAE, batch_size, shuffle, num_workers):
+    assert name in ['train', 'val', 'train+val']
+
+    if (name == 'train'):
+        vqaE_dset = VQA_E_finetuning_Dataset('train', dictionary_vqa, vocab_VQAE)
+    elif (name == 'val'):
+        vqaE_dset = VQA_E_finetuning_Dataset('val', dictionary_vqa, vocab_VQAE)
+    elif (name == 'train+val'):
+        vqaE_dset = ConcatDataset([VQA_E_finetuning_Dataset('train', dictionary_vqa, vocab_VQAE), VQA_E_finetuning_Dataset('val', dictionary_vqa, vocab_VQAE)])
+
+    data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
+    return data_loader
