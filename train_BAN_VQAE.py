@@ -60,6 +60,7 @@ def parse_args():
     parser.add_argument('--log_step', type=int, default=50, help='step size for prining log info')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--model_num_CE', type=int, default=1, help='model number of caption encoder')
+    parser.add_argument('--checkpoint_dir', type=str, default='None', help='loading from this checkpoint')
     args = parser.parse_args()
     return args
 
@@ -130,7 +131,18 @@ if __name__ == '__main__':
 
     total_step = len(vqaE_loader)
 
-    for epoch in range(args.num_epoch):
+    epoch_start = 0
+
+    if (args.checkpoint_dir != 'None'):
+        model_vqaE_path = os.path.join(
+            'model_xai', 'vqaE',
+            args.checkpoint_dir)
+        model_vqaE_data = torch.load(model_vqaE_path)
+        ban_vqaE.load_state_dict(model_vqaE_data['model_state'])
+        optimizer.load_state_dict(model_vqaE_data['optimizer_state'])
+        epoch_start = model_vqaE_data['epoch']+1
+
+    for epoch in range(epoch_start, args.num_epoch):
         for i,(v, b, q, ans, captions, lengths) in enumerate(vqaE_loader):
 
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]

@@ -62,6 +62,8 @@ def parse_args():
     parser.add_argument('--s_method', type=str, default='BestOne') # BestOne, BeamSearch
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--model_num_CE', type=int, default=1)
+    parser.add_argument('--ce_epoch', type=int, default=348)
     parser.add_argument('--xai_model_loc', type=str, default='model_XAI/')
     args = parser.parse_args()
     return args
@@ -183,12 +185,14 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
             explain=explains[num_sen]
         else:
             explain=explains
-        if explain[0] == '<start>':
-            for i in explain[1:]:
-                if i != '<end>':
-                    x_caption=x_caption+' '+i
-                else:
-                    break
+        for word_ in explain:
+            if word_ == '<start>':
+                x_caption = ''
+            elif word_ == '<end>':
+                break
+            else:
+                x_caption = x_caption + ' ' + word_
+
         if (NumBeams > 1):
             x_caption=x_caption+'\n'
     Explain = 'Explain : {}'.format(x_caption)
@@ -328,7 +332,7 @@ if __name__ == '__main__':
         vocab = pickle.load(f)
 
 
-    encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
+    encoder = Encoder_HieStackedCorr(args.embed_size, 2048,1,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
     caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size,
                                      eval_dset.num_ans_candidates,bidirectional_=True).to(device)
@@ -353,11 +357,16 @@ if __name__ == '__main__':
         print('loading xai datas %s' % model_uncorr_pth)
         model_xai_data = torch.load(model_uncorr_pth)
 
+        model_ce_path = os.path.join(
+            'model_xai', 'caption_encoder', 'model{}'.format(args.model_num_CE), 'ce-{}-Final.pth'.format(args.ce_epoch + 1))
+        print('loading xai datas %s' % model_uncorr_pth)
+        model_ce_data = torch.load(model_ce_path)
+
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
         guide.load_state_dict(model_xai_data['Guide_state'])
-        caption_encoder.load_state_dict(model_xai_data['CaptionEnc_state'])
-
+        #caption_encoder.load_state_dict(model_xai_data['CaptionEnc_state'])
+        caption_encoder.load_state_dict(model_ce_data['CaptionEnc_state'])
         model = nn.DataParallel(model).cuda()
         model.load_state_dict(model_data.get('model_state', model_data))
 

@@ -40,3 +40,38 @@ class EnsembleVQAE(nn.Module):
         outputs_caption=self.decoder(context_vec.squeeze(1), captions, lengths)
 
         return logits, att, outputs_caption
+
+    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
+
+        assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
+        assert s_method in ['BestOne', 'BeamSearch']
+
+        q = q.squeeze(1)
+        logits, att = self.BAN(v, b, q, None)
+
+        att_final = att[:, -1, :, :]
+        # 원래는 q_net(q)와 v_net(v)가 Att matrix의 양 끝에 Matrix-Multiplication 된다.
+        att_for_v = torch.sum(att_final,
+                              2).unsqueeze(
+            2)  # average over question words (phrase-level inspection, each index for q in final stage does not represent word anymore (it rather represents something semantically more meaningful)
+        # att_for_v dimension => [b, v_feature_dim, 1]
+
+        atted_v_feats = att_for_v * v  # attended visual features
+        atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+
+        q_emb = self.BAN.module.extractQEmb(q)
+        q_emb = q_emb[:, -1, :]
+        q_emb = q_emb.unsqueeze(1)
+
+        encoded_features = self.act_relu(self.linearWq(q_emb)) * self.act_relu(self.linearWv(atted_v_feats))
+        encoded_features=encoded_features.squeeze(1)
+
+        if(s_method == 'BestOne'):
+            if (model_num < 7):
+                Generated_Captions=self.decoder.sample(encoded_features)
+            else:
+                Generated_Captions = self.decoder.sample2(encoded_features)
+        elif(s_method == 'BeamSearch'):
+            Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
+
+        return Generated_Captions, logits, att

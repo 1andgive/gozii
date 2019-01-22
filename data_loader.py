@@ -17,6 +17,10 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=FutureWarning)
     import h5py
 from nltk.tokenize import word_tokenize
+import sys
+
+sys.path.append('D:\\VQA\\BAN')
+
 from codes.dataset import VQAFeatureDataset
 from torch.utils.data import ConcatDataset
 
@@ -248,9 +252,14 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
 def trim_collate(batch):
     max_num_boxes = max([x.size(0) for x in batch])
     numel = len(batch) * max_num_boxes * batch[0].size(-1)
-    storage = batch[0].storage()._new_shared(numel)
-    out = batch[0].new(storage)
-    return torch.stack([F.pad(x, (0, 0, 0, max_num_boxes - x.size(0))).data for x in batch], 0, out=out)
+    for i in range(len(batch)):
+        try:
+            storage = batch[i].storage()._new_shared(numel)
+            out = batch[i].new(storage)
+        except:
+            pass
+        else:
+            return torch.stack([F.pad(x, (0, 0, 0, max_num_boxes - x.size(0))).data for x in batch], 0, out=out)
 
 
 

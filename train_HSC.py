@@ -74,7 +74,7 @@ def main(args):
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
         optimizer.load_state_dict(model_hsc_data['optimizer_state'])
-        epoch_start=model_hsc_data['epoch']
+        epoch_start=model_hsc_data['epoch']+1
 
 
     if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim))):
@@ -121,7 +121,7 @@ def main(args):
                 #pdb.set_trace()
                 if (args.t_method == 'mean'):
                     model_path = os.path.join(
-                        args.model_path, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-{}.pth'.format(epoch + 1, i + 1))
+                        args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-{}.pth'.format(epoch + 1, i + 1))
                 else:
                     model_path = os.path.join(
                         args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim),
