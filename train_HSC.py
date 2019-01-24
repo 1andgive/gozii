@@ -96,9 +96,6 @@ def main(args):
             targets=targets.cuda()
 
 
-
-
-
             # Forward, backward and optimize
             features_encoded = encoder(features,t_method=args.t_method,model_num=args.model_num)
 

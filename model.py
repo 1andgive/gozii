@@ -170,11 +170,11 @@ class DecoderRNN(nn.Module):
             hiddens, _ = self.lstm(packed)
 
         elif (model_num == 7):
-            pdb.set_trace()
             embeddings = self.embed(captions[:,:-1]) # input에서는 <eos>가 제거됨
             packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
             features=features.unsqueeze(0)
-            hiddens, _ = self.lstm(packed, [features,features])
+            init_memory=torch.cuda.FloatTensor(features.size()).fill_(0)
+            hiddens, _ = self.lstm(packed, [features,init_memory])
 
 
         outputs = self.linear(hiddens[0]) #teacher forcing 방식
@@ -195,12 +195,13 @@ class DecoderRNN(nn.Module):
         sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
 
-    def sample2(self, features, states=None):
+    def sample2(self, features, input=1):
         """Generate captions for given image features using greedy search."""
         sampled_ids = []
         features = features.unsqueeze(0)
-        states=[features, features]
-        inputs=self.embed(torch.cuda.LongTensor([1]))
+        init_memory = torch.cuda.FloatTensor(features.size()).fill_(0)
+        states=[features, init_memory]
+        inputs=self.embed(torch.cuda.LongTensor([input]))
         inputs = inputs.unsqueeze(1)
         for i in range(self.max_seg_length):
             hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
@@ -271,11 +272,12 @@ class DecoderRNN(nn.Module):
         return sampled_id_list
 
 class BAN_HSC(nn.Module):
-    def __init__(self,BAN,encoder,decoder):
+    def __init__(self,BAN,encoder,decoder,vocab):
         super(BAN_HSC,self).__init__()
         self.BAN=BAN
         self.encoder=encoder
         self.decoder=decoder
+        self.vocab=vocab
     def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
@@ -288,7 +290,8 @@ class BAN_HSC(nn.Module):
             if (model_num < 7):
                 Generated_Captions=self.decoder.sample(encoded_features)
             else:
-                Generated_Captions = self.decoder.sample2(encoded_features)
+                input_=self.vocab('<start>')
+                Generated_Captions = self.decoder.sample2(encoded_features,input=input_)
         elif(s_method == 'BeamSearch'):
             Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 

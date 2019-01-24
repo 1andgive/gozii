@@ -356,7 +356,7 @@ if __name__ == '__main__':
         encoder.train(False)
         decoder.train(False)
 
-        caption_generator=BAN_HSC(model,encoder,decoder).to(device)
+        caption_generator=BAN_HSC(model,encoder,decoder,vocab_VQAE).to(device)
 
 
         ################################################################################################################

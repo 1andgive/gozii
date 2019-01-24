@@ -164,11 +164,13 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False):
         lengths: list; valid length for each padded caption.
     """
     # Sort a data list by caption length (descending order).
-    data.sort(key=lambda x: len(x[1]), reverse=True)
+
 
     if (not(use_VQAE) and not(use_VQAX)):
+        data.sort(key=lambda x: len(x[2]), reverse=True)
         features, spatials, captions = zip(*data)
     elif(use_VQAE):
+        data.sort(key=lambda x: len(x[4]), reverse=True)
         features, spatials, questions, answers, captions = zip(*data)
 
 
@@ -189,12 +191,19 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False):
     # lengths for 'pack_padded_sequence' should be sorted!!
     idcies=np.argsort(lengths)[::-1] # sorting in descending order
     new_lengths=[lengths[idx] for idx in idcies]
-    new_features = [features[idx] for idx in idcies]
-    new_spatials = [spatials[idx] for idx in idcies]
-    new_targets=[targets[idx] for idx in idcies]
+    if features[0] is not None:
+        new_features = [features[idx] for idx in idcies]
+        new_features = trim_collate(new_features)
+    else:
+        new_features=features
 
-    new_features = trim_collate(new_features)
-    new_spatials = trim_collate(new_spatials)
+    if spatials[0] is not None:
+        new_spatials = [spatials[idx] for idx in idcies]
+        new_spatials = trim_collate(new_spatials)
+    else:
+        new_spatials=spatials
+
+    new_targets=[targets[idx] for idx in idcies]
     new_targets=torch.stack(new_targets)
 
     #pdb.set_trace()
@@ -398,6 +407,77 @@ def VQAE_FineTunning_loader(name, dictionary_vqa, vocab_VQAE, batch_size, shuffl
         vqaE_dset = VQA_E_finetuning_Dataset('val', dictionary_vqa, vocab_VQAE)
     elif (name == 'train+val'):
         vqaE_dset = ConcatDataset([VQA_E_finetuning_Dataset('train', dictionary_vqa, vocab_VQAE), VQA_E_finetuning_Dataset('val', dictionary_vqa, vocab_VQAE)])
+
+    data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
+    return data_loader
+
+
+class vqaE_CapEnc_Dataset(data.Dataset):
+    """VQA_E Dataset (VQA_E) compatible with torch.utils.data.DataLoader."""
+
+    def __init__(self,name,vqaDict, captionVcoab, dataroot='codes\\tools\\data', hdf5path='D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\hdf5',
+                 adaptive=True, vqa_E_train_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json',
+                 vqa_E_val_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json'):
+        assert name in ['train', 'val', 'train+val']
+        super(vqaE_CapEnc_Dataset,self).__init__()
+        if (name == 'train'):
+            self.VQA_E=json.load(open(vqa_E_train_path))
+        elif(name == 'val'):
+            self.VQA_E=json.load(open(vqa_E_val_path))
+
+        self.vqaDict=vqaDict
+        self.capVoc=captionVcoab
+        ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
+        self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
+        self.num_ans_candidates = len(self.ans2label)
+
+    def __getitem__(self, index):
+        answer = self.VQA_E[index]['multiple_choice_answer']
+        if answer in self.ans2label.keys():
+            answer = self.ans2label[answer]
+        else:
+            answer = 545  # self.ans2label['unknown'] ==> 545
+        question = self.VQA_E[index]['question'][:-1].lower()
+        Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+        Wq_list = word_tokenize(question)
+        if len(Wq_list) <= 14:
+            for idx in range(len(Wq_list)):
+                if Wq_list[idx] in self.vqaDict.word2idx.keys():
+                    Wq_[0, idx] = self.vqaDict.word2idx[Wq_list[idx]]
+                else:
+                    Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+                    answer = 545  # self.ans2label['unknown'] ==> 545
+        else:
+            Wq_ = torch.cuda.LongTensor(1, 14).fill_(19901)
+            answer = 545  # self.ans2label['unknown'] ==> 545
+
+        explanation = self.VQA_E[index]['explanation'][0]
+        tokens = word_tokenize(explanation.lower())
+        Wc_list = []
+        Wc_list.append(self.capVoc('<start>'))  # <'start'>
+        Wc_list.extend([self.capVoc(token) for token in tokens])
+        Wc_list.append(self.capVoc('<end>'))
+        Wc_ = torch.Tensor(Wc_list)
+
+        target = torch.zeros(self.num_ans_candidates)
+        if answer is not None:
+            target.scatter_(0, torch.LongTensor([answer]), 1)
+
+        return None, None, Wq_, target, Wc_  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+
+    def __len__(self):
+        return len(self.VQA_E)
+
+
+def vqaE_CapEnc_Loader(name, dictionary_vqa, vocab_VQAE, batch_size, shuffle, num_workers):
+    assert name in ['train', 'val', 'train+val']
+
+    if (name == 'train'):
+        vqaE_dset = vqaE_CapEnc_Dataset('train', dictionary_vqa, vocab_VQAE)
+    elif (name == 'val'):
+        vqaE_dset = vqaE_CapEnc_Dataset('val', dictionary_vqa, vocab_VQAE)
+    elif (name == 'train+val'):
+        vqaE_dset = ConcatDataset([vqaE_CapEnc_Dataset('train', dictionary_vqa, vocab_VQAE), vqaE_CapEnc_Dataset('val', dictionary_vqa, vocab_VQAE)])
 
     data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
     return data_loader

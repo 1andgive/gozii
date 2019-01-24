@@ -26,8 +26,10 @@ import codes.base_model as base_model
 
 from codes.dataset import Dictionary, VQAFeatureDataset
 from model_explain import CaptionEncoder
-from data_loader import VQA_E_loader
+from data_loader import vqaE_CapEnc_Loader
+from model_VQAE import EnsembleVQAE
 import pickle
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 
 
@@ -36,14 +38,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/VQA_E_vocab.pkl',
+                        help='path for VQA_E vocabulary wrapper')
     parser.add_argument('--vqa_E_train_path', type=str,
                         default='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json',
                         help='path for train annotation json file')
     parser.add_argument('--vqa_E_val_path', type=str,
                         default='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json',
                         help='path for validation annotation json file')
-    parser.add_argument('--batch_size', type=int, default=2048)
+    parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--hidden_size_BAN', type=int, default=1280, help='dimension of GRU hidden states in BAN')
@@ -72,6 +75,14 @@ def requires_grad_Switch(module,isTrain=True):
     for p in module.parameters():
         p.requires_grad=isTrain
 
+def instance_bce_with_logits(logits, labels):
+    assert logits.dim() == 2
+
+    #pdb.set_trace()
+    loss = nn.functional.binary_cross_entropy_with_logits(logits, labels)
+    loss *= labels.size(1)
+    return loss
+
 if __name__ == '__main__':
     args = parse_args()
 
@@ -88,18 +99,14 @@ if __name__ == '__main__':
     dictionary_vqa = Dictionary.load_from_file('codes/tools/data/dictionary.pkl')
 
     with open(args.vocab_path, 'rb') as f:
-        vocab_caption = pickle.load(f)
+        vocab_VQAE = pickle.load(f)
 
-    vqa_E_train = json.load(open(args.vqa_E_train_path))
-    vqa_E_val = json.load(open(args.vqa_E_val_path))
 
-    #pdb.set_trace()
+    vqaE_loader = vqaE_CapEnc_Loader('train+val', dictionary_vqa, vocab_VQAE, args.batch_size, shuffle=True, num_workers=0)
 
-    vqaE_dset = VQA_E_loader(vqa_E_train,vqa_E_val,dictionary_vqa,vocab_caption)
-    vqaE_loader = DataLoader(vqaE_dset, args.batch_size, shuffle=True, num_workers=0)
 
     caption_encoder = CaptionEncoder(args.embed_size, args.hidden_size_BAN, args.hidden_size,
-                                     vqaE_dset.num_ans_candidates,bidirectional_=True).to(device)
+                                     vqaE_loader.dataset.datasets[0].num_ans_candidates,bidirectional_=True).to(device)
 
     params1=caption_encoder.parameters()
     optimizer1 = torch.optim.Adamax(params1, lr=args.learning_rate)
@@ -120,49 +127,52 @@ if __name__ == '__main__':
     model = nn.DataParallel(model).cuda()
     model.load_state_dict(model_data.get('model_state', model_data))
 
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab_caption), args.num_layers).to(device)
-    if (args.t_method == 'mean'):
-        model_hsc_path = os.path.join(
-            args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
-            'model-{}-400.pth'.format(args.hsc_epoch))
-    else:
-        model_hsc_path = os.path.join(
-            args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
-            'model-{}-400.pth'.format(args.hsc_epoch))
+    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab_VQAE), args.num_layers).to(device)
 
-    print('loading hsc(attention caption) %s' % model_hsc_path)
-    model_hsc_data = torch.load(model_hsc_path)
-    decoder.load_state_dict(model_hsc_data['decoder_state'])
+    ban_vqaE = EnsembleVQAE(model, decoder).to(device)
+
+    model_ban_vqaE_path = os.path.join(
+            'model_xai', 'vqaE', 'vqaE-{}-Final.pth'.format(20))
+
+    print('loading ban_vqaE model %s' % model_ban_vqaE_path)
+    model_ban_vqaE_data = torch.load(model_ban_vqaE_path)
+
+    ban_vqaE.load_state_dict(model_ban_vqaE_data['model_state']) # ban_vqaE의 decoder 로드하기
 
     criterion = nn.CrossEntropyLoss()
 
     requires_grad_Switch(model,isTrain=False)
     requires_grad_Switch(decoder, isTrain=False)
-
+    captionMaxSeqLength=40
     total_step = len(vqaE_loader)
 
     for epoch in range(args.num_epoch):
-        for i,(Wq,Wc,answer) in enumerate(vqaE_loader):
+        for i,(_,_,Wq,answer,Wc,lengths) in enumerate(vqaE_loader):
 
             caption_encoder.zero_grad()
 
             Wq=Wq.squeeze(1)
             Wc=Wc.squeeze(1)
+            Wc=Wc.type(torch.LongTensor)
+            Wc=Wc.cuda()
             q_emb=model.module.extractQEmb(Wq)
             #states=[None]
             states=None
             input_list=[]
-            for k in range(vqaE_dset.captionMaxSeqLength):
-                input_list.append(decoder.embed(Wc[:,k]))
-                #hiddens, states_tmp = caption_encoder(input_list[k], states[k])
-                #states.append(states_tmp)
-            inputs=torch.stack(input_list,1)
+            # for k in range(min(captionMaxSeqLength,Wc.size(0))):
+            #     input_list.append(decoder.embed(Wc[:,k]))
+            #     #hiddens, states_tmp = caption_encoder(input_list[k], states[k])
+            #     #states.append(states_tmp)
+            # inputs=torch.stack(input_list,1)
 
-            hiddens, states = caption_encoder(inputs, states)
-            outs=caption_encoder.forward_CL_ATT(q_emb,hiddens)
+            inputs = pack_padded_sequence(decoder.embed(Wc), lengths, batch_first=True)
+
+            hiddens_packed, states = caption_encoder(inputs, states)
+            hiddens, input_sizes = pad_packed_sequence(hiddens_packed, batch_first=True)
+            preds=caption_encoder.forward_CL_ATT(q_emb,hiddens)
             #outs=caption_encoder.forward_DoubleLSTM_out(hiddens)
             answer=answer.cuda()
-            Loss = criterion(outs, answer)
+            Loss = instance_bce_with_logits(preds, answer)
             Loss.backward()
             optimizer1.step()
 
