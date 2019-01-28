@@ -37,7 +37,9 @@ def main(args):
 
 
     # Build data loader
-    data_loader = BottomUp_get_loader('train', args.caption_path, vocab,
+    coco_cap_train_path='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json'
+    coco_cap_val_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_val2014.json'
+    data_loader = BottomUp_get_loader('train+val', [coco_cap_train_path, coco_cap_val_path], vocab,
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers)
 
@@ -135,7 +137,6 @@ if __name__ == '__main__':
     parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--image_dir', type=str, default='data/resized2014', help='directory for resized images')
     parser.add_argument('--checkpoint_dir', type=str, default='None', help='loading from this checkpoint')
-    parser.add_argument('--caption_path', type=str, default='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json', help='path for train annotation json file')
     parser.add_argument('--log_step', type=int , default=10, help='step size for prining log info')
     parser.add_argument('--save_step', type=int , default=200, help='step size for saving trained models')
 
@@ -144,7 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', type=int , default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num_layers', type=int , default=1, help='number of layers in lstm')
     
-    parser.add_argument('--num_epochs', type=int, default=13)
+    parser.add_argument('--num_epochs', type=int, default=16)
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)

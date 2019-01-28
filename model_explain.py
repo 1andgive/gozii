@@ -506,3 +506,23 @@ class UNCorrXAI(nn.Module):
             Generated_Captions = self.decoder.BeamSearch(encoded_feats, NumBeams=3)
 
         return Generated_Captions, logits, att
+
+# MAP 'Caption Word' and 'Answer Word' to 'Question Dictionary Index', find Word Embedding from this dictionary, and measure Sentence Similarity
+def CaptionVocabCandidate(Question,Answer, CocoVocab):
+    CocoVocabList = []
+
+
+    for Wa in word_tokenize(Answer):
+        if Wa in CocoVocab.word2idx.keys():
+            if (Wa=='yes') or (Wa=='no'):
+                continue
+            else:
+                CocoVocabList.append(CocoVocab.word2idx[Wa])
+
+    if CocoVocabList == []:
+        for Wq in word_tokenize(Question):
+            if Wq in CocoVocab.word2idx.keys():
+                CocoVocabList.append(CocoVocab.word2idx[Wq])
+
+
+    return CocoVocabList

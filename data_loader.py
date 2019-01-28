@@ -240,11 +240,22 @@ def get_loader(root, json, vocab, transform, batch_size, shuffle, num_workers):
 def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
-    assert name in ['train', 'val', 'test-dev2015', 'test2015']
+    assert name in ['train', 'val', 'test-dev2015', 'test2015',  'train+val']
 
-    coco = BottomUp_CocoDataset(name=name,
-                       json=json,
-                       vocab=vocab)
+    if name=='train+val':
+        coco_train = BottomUp_CocoDataset(name='train',
+                                    json=json[0],
+                                    vocab=vocab)
+        coco_val = BottomUp_CocoDataset(name='val',
+                                          json=json[1],
+                                          vocab=vocab)
+        coco=ConcatDataset([coco_train,coco_val])
+    else:
+        coco = BottomUp_CocoDataset(name=name,
+                           json=json,
+                           vocab=vocab)
+
+
 
     # Data loader for COCO dataset
     # This will return (images, captions, lengths) for each iteration.

@@ -170,7 +170,8 @@ class DecoderRNN(nn.Module):
             hiddens, _ = self.lstm(packed)
 
         elif (model_num == 7):
-            embeddings = self.embed(captions[:,:-1]) # input에서는 <eos>가 제거됨
+            #embeddings = self.embed(captions[:,:-1]) # input에서는 <eos>가 제거됨
+            embeddings = self.embed(captions)  # input에서는 <eos>가 제거됨
             packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
             features=features.unsqueeze(0)
             init_memory=torch.cuda.FloatTensor(features.size()).fill_(0)
@@ -208,6 +209,30 @@ class DecoderRNN(nn.Module):
             outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)                        # predicted: (batch_size)
             sampled_ids.append(predicted)
+            inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
+            inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
+        sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
+        return sampled_ids
+
+    def sample_with_answer(self, features, vocab_candidates, states=None):
+        """Generate captions for given image features using greedy search."""
+
+        sampled_ids = []
+        inputs = features.unsqueeze(1)
+        for i in range(self.max_seg_length):
+
+            hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
+            outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
+            _, predicted = outputs.max(1)                        # predicted: (batch_size)
+            if(i==0):
+                predicted=torch.cuda.LongTensor([1])
+            elif (i == 1):
+                outputs_candidate=outputs[0,vocab_candidates]
+                _, output_best=outputs_candidate.max(0)
+                predicted=vocab_candidates[output_best]
+                predicted = torch.cuda.LongTensor([predicted])
+            sampled_ids.append(predicted)
+
             inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
             inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
         sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
@@ -296,6 +321,21 @@ class BAN_HSC(nn.Module):
             Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 
         return Generated_Captions, logits, att
+
+    def generate_explain(self,encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
+        assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
+        assert s_method in ['BestOne', 'BeamSearch']
+
+        if (s_method == 'BestOne'):
+            if (model_num < 7):
+                Generated_Explains = self.decoder.sample_with_answer(encoded_features, vocab_candidates)
+            else:
+                input_ = self.vocab('<start>')
+                _= self.decoder.sample2(encoded_features, input=input_)
+        elif (s_method == 'BeamSearch'):
+            _ = self.decoder.BeamSearch(encoded_features, NumBeams=3)
+
+        return Generated_Explains
 
     def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
 
