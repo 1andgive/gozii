@@ -220,12 +220,16 @@ class DecoderRNN(nn.Module):
         sampled_ids = []
         inputs = features.unsqueeze(1)
         for i in range(self.max_seg_length):
-
             hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
             outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)                        # predicted: (batch_size)
             if(i==0):
-                predicted=torch.cuda.LongTensor([1])
+                predicted=torch.cuda.LongTensor([1]) # '<start>'
+            # elif (i == 1):
+            #     answer_word=vocab_candidates[0]
+            #
+            #     predicted=torch.cuda.LongTensor([answer_word]) # '<start>'
+            #     vocab_candidates.remove(answer_word)
             elif (i == 1):
                 outputs_candidate=outputs[0,vocab_candidates]
                 _, output_best=outputs_candidate.max(0)

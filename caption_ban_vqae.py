@@ -14,7 +14,7 @@ import numpy as np
 import pickle
 from build_vocab import Vocabulary
 from model_explain import Sen_Sim
-from model_explain import Relev_Check
+from model_explain import Relev_Check, CaptionVocabCandidate
 
 sys.path.append('D:\\VQA\\BAN')
 
@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
-    parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--save_fig_loc', type=str, default='Result_comparison/')
     parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
@@ -104,7 +104,8 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
     idx = 0
     bar = progressbar.ProgressBar(maxval=N).start()
     #save_folder=['OURS', 'VQAE']
-    save_folder = ['CAPTION']
+    # save_folder = ['CAPTION']
+    save_folder = ['OURS']
     for v, b, q, i in iter(dataloader):
         if(idx > args_.max_images):
             break
@@ -118,7 +119,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 q = Variable(q).cuda()
 
 
-                generated_captions, logits, att = caption_generator_list[i_cap].generate_caption(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_, model_num=args_.model_num)
+                generated_captions, logits, att, encoded_feats = caption_generator_list[i_cap].generate_caption_n_context(v, b, q,t_method=t_method_, x_method=args.x_method, s_method=s_method_)
 
                 idx += batch_size
                 bar.update(idx)
@@ -141,6 +142,25 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                             captions_list.append(caption)
 
                     answer_list.append(get_answer(logits.data[idx2], dataloader))
+
+                if(save_folder[i_cap]=='OURS'):
+                    ##################################################################### EXPLAIN ##################################################################################
+                    word_candidate_idx_in_coco_vocab = CaptionVocabCandidate(question_list[0], answer_list[0], vocab)
+                    generated_captions = caption_generator_list[i_cap].generate_explain(encoded_feats,
+                                                                            word_candidate_idx_in_coco_vocab,
+                                                                            t_method=t_method_, x_method=args.x_method,
+                                                                            s_method=s_method_,
+                                                                            model_num=args_.model_num)
+                    captions_list = []
+                    for idx2 in range(len(i)):
+                        if (s_method_ == 'BestOne'):
+                            caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
+                                       range(generated_captions.size(1))]
+                            captions_list.append(caption)
+
+
+                    # print(captions_list[0])
+                    ##################################################################### EXPLAIN ##################################################################################
 
             caption_=captions_list[0]
             RelScore=Relev_Check(captions_list[0], q, answer_list[0], caption_generator_list[i_cap].BAN.module.w_emb, dataloader.dataset.dictionary)
@@ -256,6 +276,11 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
         for ii in range(4):
             int_pt[ii]=round(pt[ii].item())
         mask_[int_pt[1]:int_pt[3],int_pt[0]:int_pt[2]] += att2_sum[i]
+
+    img_total = np.zeros([im_height, 2 * im_width, image.shape[2]])
+    img_total=img_total.astype(int)
+    img_total[:, :im_width, :] =image.copy()
+
     image=image.copy()
     img_r=np.multiply(image[:,:,0],mask_)
     img_g = np.multiply(image[:, :, 1], mask_)
@@ -263,6 +288,10 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
     image[:,:,0]=np.round_(img_r)
     image[:, :, 1] = np.round_(img_g)
     image[:, :, 2] = np.round_(img_b)
+    image=image.astype(int)
+    img_total[:, im_width:, :]=image
+
+
 
     im3.imshow(image)
 
@@ -271,7 +300,7 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
         plt.show()
 
 
-    return fig, image
+    return fig, img_total
 
 #######################################################################################`
 
@@ -363,11 +392,11 @@ if __name__ == '__main__':
 
         #Concatenate Encoder-Decoder to model and check whether the model generates correct captions based on visual cues
 
-        if not os.path.exists(os.path.join(args.save_fig_loc,'VQAE','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)):
+        if not os.path.exists(os.path.join(args.save_fig_loc,'VQAE','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # # use ensemble_, vocab_VQAE
             os.makedirs(os.path.join(args.save_fig_loc,'VQAE','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
-        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)):
+        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == weight_only
             os.makedirs(os.path.join(args.save_fig_loc,'OURS','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
-        if not os.path.exists(os.path.join(args.save_fig_loc,'CAPTION','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)):
+        if not os.path.exists(os.path.join(args.save_fig_loc,'CAPTION','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == NoAtt
             os.makedirs(os.path.join(args.save_fig_loc,'CAPTION','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
         #check_captions([caption_generator, ensemble_], eval_loader, Dict_qid2vid, [vocab, vocab_VQAE],
          #              args.save_fig_loc, args.x_method, args.t_method, args.s_method, args)

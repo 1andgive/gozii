@@ -510,6 +510,10 @@ class UNCorrXAI(nn.Module):
 # MAP 'Caption Word' and 'Answer Word' to 'Question Dictionary Index', find Word Embedding from this dictionary, and measure Sentence Similarity
 def CaptionVocabCandidate(Question,Answer, CocoVocab):
     CocoVocabList = []
+    QuestionSentence=word_tokenize(Question)
+    num_pad=QuestionSentence.count('_')
+    for i in range(num_pad):
+        QuestionSentence.remove('_')
 
 
     for Wa in word_tokenize(Answer):
@@ -518,11 +522,15 @@ def CaptionVocabCandidate(Question,Answer, CocoVocab):
                 continue
             else:
                 CocoVocabList.append(CocoVocab.word2idx[Wa])
+            # CocoVocabList.append(CocoVocab.word2idx[Wa])
 
-    if CocoVocabList == []:
-        for Wq in word_tokenize(Question):
+    if CocoVocabList==[]:
+        for Wq in QuestionSentence:
             if Wq in CocoVocab.word2idx.keys():
-                CocoVocabList.append(CocoVocab.word2idx[Wq])
+                if (Wq == 'is') or (Wq == 'are') or (Wq == 'will') or (Wq == "'s") or (Wq == 'the') or (Wq == 'many') or (Wq == 'a'):
+                    continue
+                else:
+                    CocoVocabList.append(CocoVocab.word2idx[Wq])
 
 
     return CocoVocabList
