@@ -478,7 +478,7 @@ class DecoderTopDown(nn.Module):
     def forward(self, Vmat, enc_features, union_vfeats, captions, lengths):
         """Decode image feature vectors and generates captions."""
         embeddings = self.embed(captions)
-        embeddings = torch.cat((enc_features.unsqueeze(1), embeddings), 1)
+        #embeddings = torch.cat((enc_features.unsqueeze(1), embeddings), 1)
 
 
         ## OVERALL STRATEGY
@@ -507,7 +507,7 @@ class DecoderTopDown(nn.Module):
             if i==0:
                 hidden1, states1=self.TopDownAttentionLSTM(input1,states1)
             else:
-                hidden1, states1 = self.TopDownAttentionLSTM(input1, tuple([states1_list[0][:,iter_batch_idx_list[i],:], states1_list[1][:,iter_batch_idx_list[i],:]]))
+                hidden1, states1 = self.TopDownAttentionLSTM(input1, tuple([states1_list[0][:,iter_batch_idx_list[i],:].cuda(), states1_list[1][:,iter_batch_idx_list[i],:].cuda()]))
 
             atten_logit=self.linear_wa(self.act_tanh(self.linear_Wva(Vmat[iter_batch_idx_list[i], :])+self.linear_Wha(hidden1)))
             atten_logit=atten_logit.squeeze(2)
@@ -518,22 +518,26 @@ class DecoderTopDown(nn.Module):
             if i == 0:
                 hidden2, states2= self.LanguageLSTM(input2,states2)
             else:
-                hidden2, states2 = self.LanguageLSTM(input2,tuple([states2_list[0][:,iter_batch_idx_list[i],:], states2_list[1][:,iter_batch_idx_list[i],:]]))
+                hidden2, states2 = self.LanguageLSTM(input2,tuple([states2_list[0][:,iter_batch_idx_list[i],:].cuda(), states2_list[1][:,iter_batch_idx_list[i],:].cuda()]))
 
 
             valid_outputs = self.linear(hidden2)  # teacher forcing 방식
             hidden2=hidden2.squeeze(1)
             outputs[iter_batch_idx_list[i],i,:]=valid_outputs.squeeze(1)
             if i == 0:
-                states1_list[0]= torch.cuda.FloatTensor(states1[0].size())
-                states1_list[1]= torch.cuda.FloatTensor(states1[1].size())
-                states2_list[0]= torch.cuda.FloatTensor(states2[0].size())
-                states2_list[1] = torch.cuda.FloatTensor(states2[1].size())
+                states1_list[0]= states1[0].clone().cpu()
+                states1_list[1]= states1[1].clone().cpu()
+                states1 = None
+                states2_list[0]= states2[0].clone().cpu()
+                states2_list[1] =states2[1].clone().cpu()
+                states2 = None
             else:
-                states1_list[0][:, iter_batch_idx_list[i], :] = states1[0][:, iter_batch_idx_list[i], :]
-                states1_list[1][:, iter_batch_idx_list[i], :] = states1[1][:, iter_batch_idx_list[i], :]
-                states2_list[0][:, iter_batch_idx_list[i], :] = states2[0][:, iter_batch_idx_list[i], :]
-                states2_list[1][:, iter_batch_idx_list[i], :] = states2[1][:, iter_batch_idx_list[i], :]
+                states1_list[0][:, iter_batch_idx_list[i], :] = states1[0][:, iter_batch_idx_list[i], :].cpu()
+                states1_list[1][:, iter_batch_idx_list[i], :] = states1[1][:, iter_batch_idx_list[i], :].cpu()
+                states1 = None
+                states2_list[0][:, iter_batch_idx_list[i], :] = states2[0][:, iter_batch_idx_list[i], :].cpu()
+                states2_list[1][:, iter_batch_idx_list[i], :] = states2[1][:, iter_batch_idx_list[i], :].cpu()
+                states2 = None
         return outputs
         #hidden2_out_prev=
 
