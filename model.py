@@ -46,7 +46,7 @@ class Encoder_HieStackedCorr(nn.Module):
         self.act_relu=nn.ReLU()
         self.act_tanh=nn.Tanh()
         self.act_Lrelu = nn.LeakyReLU()
-    def forward(self, Vmat, t_method='mean', model_num=1):
+    def forward_BUTD(self, Vmat, t_method='mean', model_num=1):
         assert t_method in ['mean', 'uncorr']
         if(model_num > 6):
             model_num=1
@@ -54,35 +54,41 @@ class Encoder_HieStackedCorr(nn.Module):
 
         if(model_num==1):
             if(t_method == 'mean'):
-                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+                features = self.MeanVmat(Vmat)
             elif(t_method == 'uncorr'):
-                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat(Vmat))))
+                features = self.MeanVmat(self.UnCorrVmat(Vmat))
         elif(model_num==2):
             if (t_method == 'mean'):
-                features = self.bn(self.linear(self.SumVmat(Vmat)))
+                features = self.SumVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.bn(self.linear(self.SumVmat(self.UnCorrVmat(Vmat)))) 
+                features = self.SumVmat(self.UnCorrVmat(Vmat))
         elif(model_num==3):
             if (t_method == 'mean'):
-                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+                features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_tanh(Vmat))))
+                features = self.MeanVmat(self.UnCorrVmat_tanh(Vmat))
         elif(model_num==4):
             if (t_method == 'mean'):
-                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+                features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_Lrelu(Vmat))))
+                features = self.MeanVmat(self.UnCorrVmat_Lrelu(Vmat))
         elif (model_num == 5):
             if (t_method == 'mean'):
-                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+                features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.bn(self.linear(self.MeanVmat(self.UnCorrelatedResidualHierarchy(10,Vmat))))
+                features = self.MeanVmat(self.UnCorrelatedResidualHierarchy(10,Vmat))
         elif (model_num == 6):
             if (t_method == 'mean'):
-                features = self.bn(self.linear(self.MeanVmat(Vmat)))
+                features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.bn(self.linear(self.MeanVmat(self.UnCorrVmat_Detail(Vmat))))
-        return features
+                features = self.MeanVmat(self.UnCorrVmat_Detail(Vmat))
+
+        enc_features=self.bn(self.linear(features))
+        return enc_features, features
+
+    def forward(self, Vmat, t_method='mean', model_num=1):
+        enc_features,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num)
+        return enc_features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
         ##building Un-Correlated Residual Hierarchy for Visual Matrix

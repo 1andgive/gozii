@@ -102,8 +102,7 @@ def main(args):
 
 
             # Forward, backward and optimize
-            union_vfeats=encoder.MeanVmat(encoder.UnCorrVmat(features))
-            features_encoded=encoder.bn(encoder.linear(union_vfeats))
+            features_encoded,union_vfeats=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num)
 
             outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
 
