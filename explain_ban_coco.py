@@ -21,7 +21,7 @@ sys.path.append('D:\\VQA\\BAN')
 from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
-from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC, DecoderTopDown
 
 import pdb
 
@@ -59,6 +59,9 @@ def parse_args():
     parser.add_argument('--s_method', type=str, default='BestOne') # BestOne, BeamSearch
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--isBUTD', type=bool, default=False)
+    parser.add_argument('--isUnion', type=bool, default=False)
+    parser.add_argument('--isFeeding', type=bool, default=False)
     args = parser.parse_args()
     return args
 
@@ -109,8 +112,9 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             q = Variable(q).cuda()
 
 
-
-            generated_captions, logits, att, encoded_feats = caption_generator.generate_caption_n_context(v, b, q,t_method=t_method_, x_method=args.x_method, s_method=s_method_)
+            #print(args.isUnion)
+            generated_captions, logits, att, encoded_feats, Vmat = caption_generator.generate_caption_n_context(v, b, q,t_method=t_method_, x_method=args.x_method, s_method=s_method_,
+                                                                                                                isBUTD=args.isBUTD , isUnion=args.isUnion)
 
             idx += batch_size
             img_list=[]
@@ -132,26 +136,28 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
                         captions_list.append(caption)
 
                 answer_list.append(get_answer(logits.data[idx2], dataloader))
+            #pdb.set_trace()
+            if(args.isFeeding):
+                ##################################################################### EXPLAIN ##################################################################################
+                word_candidate_idx_in_coco_vocab = CaptionVocabCandidate(question_list[0], answer_list[0], vocab)
+                generated_captions=caption_generator.generate_explain(Vmat, encoded_feats,word_candidate_idx_in_coco_vocab,t_method=t_method_, x_method=args.x_method, s_method=s_method_,
+                                                                      isBUTD=args.isBUTD , isUnion=args.isUnion, model_num=args_.model_num)
+                captions_list=[]
+                for idx2 in range(len(i)):
+                    if (s_method_ == 'BestOne'):
+                        caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
+                                   range(generated_captions.size(1))]
+                        captions_list.append(caption)
 
-            ##################################################################### EXPLAIN ##################################################################################
-            word_candidate_idx_in_coco_vocab = CaptionVocabCandidate(question_list[0], answer_list[0], vocab)
-            generated_captions=caption_generator.generate_explain(encoded_feats,word_candidate_idx_in_coco_vocab,t_method=t_method_, x_method=args.x_method, s_method=s_method_, model_num=args_.model_num)
-            captions_list=[]
-            for idx2 in range(len(i)):
-                if (s_method_ == 'BestOne'):
-                    caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
-                               range(generated_captions.size(1))]
-                    captions_list.append(caption)
-
-            x_method_ = args.x_method+ '_Explain'
-            if not os.path.exists(
-                    os.path.join(args.save_fig_loc, 'model{}'.format(args.model_num), args.t_method, x_method_,
-                                 args.s_method)):
-                os.makedirs(
-                    os.path.join(args.save_fig_loc, 'model{}'.format(args.model_num), args.t_method, x_method_,
-                                 args.s_method))
-            #print(captions_list[0])
-            ##################################################################### EXPLAIN ##################################################################################
+                x_method_ = args.x_method+ '_Explain'
+                if not os.path.exists(
+                        os.path.join(args.save_fig_loc, 'model{}'.format(args.model_num), args.t_method, x_method_,
+                                     args.s_method)):
+                    os.makedirs(
+                        os.path.join(args.save_fig_loc, 'model{}'.format(args.model_num), args.t_method, x_method_,
+                                     args.s_method))
+                #print(captions_list[0])
+                ##################################################################### EXPLAIN ##################################################################################
 
 
 
@@ -315,6 +321,8 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
 
 if __name__ == '__main__':
     args = parse_args()
+    if (args.t_method == 'uncorr'):
+        args.isUnion = True
 
     torch.backends.cudnn.benchmark = True
 
@@ -353,7 +361,19 @@ if __name__ == '__main__':
 
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim).to(device)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
+    if(args.isBUTD):
+        decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab),
+                                 args.num_layers).to(device)
+        args.save_fig_loc=args.save_fig_loc+'model_BUTD/'
+        args.hsc_path='models_BUTD/'
+        model_file='model-{}.pth'.format(args.hsc_epoch)
+    else:
+
+        decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
+        if (args.t_method == 'mean'):
+            model_file = 'model-{}.pth'.format(args.hsc_epoch)
+        else:
+            model_file = 'model-{}-400.pth'.format(args.hsc_epoch)
 
     def process(args, model, eval_loader,Dict_qid2vid):
         model_path = args.input + '/model%s.pth' % \
@@ -364,10 +384,10 @@ if __name__ == '__main__':
 
         if(args.t_method == 'mean'):
             model_hsc_path = os.path.join(
-                args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
+                args.hsc_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), model_file)
         else:
             model_hsc_path = os.path.join(
-                args.hsc_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-400.pth'.format(args.hsc_epoch))
+                args.hsc_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim), model_file)
 
         print('loading hsc datas %s' % model_hsc_path)
         model_hsc_data=torch.load(model_hsc_path)

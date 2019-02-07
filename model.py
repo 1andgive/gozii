@@ -46,7 +46,7 @@ class Encoder_HieStackedCorr(nn.Module):
         self.act_relu=nn.ReLU()
         self.act_tanh=nn.Tanh()
         self.act_Lrelu = nn.LeakyReLU()
-    def forward_BUTD(self, Vmat, t_method='mean', model_num=1):
+    def forward_BUTD(self, Vmat, t_method='mean', model_num=1,isUnion=False):
         assert t_method in ['mean', 'uncorr']
         if(model_num > 6):
             model_num=1
@@ -56,38 +56,48 @@ class Encoder_HieStackedCorr(nn.Module):
             if(t_method == 'mean'):
                 features = self.MeanVmat(Vmat)
             elif(t_method == 'uncorr'):
-                features = self.MeanVmat(self.UnCorrVmat(Vmat))
+                features,UMat=self.UnCorrVmat(Vmat)
+                features = self.MeanVmat(features)
         elif(model_num==2):
             if (t_method == 'mean'):
                 features = self.SumVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.SumVmat(self.UnCorrVmat(Vmat))
+                features, UMat = self.UnCorrVmat(Vmat)
+                features = self.SumVmat(features)
         elif(model_num==3):
             if (t_method == 'mean'):
                 features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.MeanVmat(self.UnCorrVmat_tanh(Vmat))
+                features, UMat = self.UnCorrVmat_tanh(Vmat)
+                features = self.MeanVmat(features)
         elif(model_num==4):
             if (t_method == 'mean'):
                 features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.MeanVmat(self.UnCorrVmat_Lrelu(Vmat))
+                features, UMat = self.UnCorrVmat_Lrelu(Vmat)
+                features = self.MeanVmat(features)
         elif (model_num == 5):
             if (t_method == 'mean'):
                 features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.MeanVmat(self.UnCorrelatedResidualHierarchy(10,Vmat))
+                features, UMat = self.UnCorrelatedResidualHierarchy(10,Vmat)
+                features = self.MeanVmat(features)
         elif (model_num == 6):
             if (t_method == 'mean'):
                 features = self.MeanVmat(Vmat)
             elif (t_method == 'uncorr'):
-                features = self.MeanVmat(self.UnCorrVmat_Detail(Vmat))
+                features, UMat = self.UnCorrVmat_Detail(Vmat)
+                features = self.MeanVmat(features)
 
-        enc_features=self.bn(self.linear(features))
-        return enc_features, features
+        if(t_method == 'uncorr'):
+            enc_features = self.bn(self.linear(features))
+            return enc_features, features, UMat
+        elif (t_method == 'mean'):
+            enc_features=self.bn(self.linear(features))
+            return enc_features, features, None
 
     def forward(self, Vmat, t_method='mean', model_num=1):
-        enc_features,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num)
+        enc_features,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num)
         return enc_features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
@@ -104,7 +114,7 @@ class Encoder_HieStackedCorr(nn.Module):
             Corr = Diag_Tensor.unsqueeze(1) * psi * Diag_Tensor.unsqueeze(2)
             Umat = 1 - Corr
             Vmat = Vmat + torch.matmul(Umat, Vmat)  # Vmat = V' (transposed version of V
-        return Vmat
+        return Vmat, Umat
 
     def MeanVmat(self,Vmat):
         v_final=torch.mean(Vmat,1)
@@ -120,7 +130,7 @@ class Encoder_HieStackedCorr(nn.Module):
         LeftUnCorr = self.act_relu(self.linear_U2(Vmat))
         UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
 
-        return torch.matmul(UnCorr,Vmat)
+        return torch.matmul(UnCorr,Vmat), UnCorr
 
     def UnCorrVmat_Detail(self,Vmat):
         #pdb.set_trace()
@@ -134,7 +144,7 @@ class Encoder_HieStackedCorr(nn.Module):
         UnCorr = Diag_Tensor.unsqueeze(1) * UnCorr * Diag_Tensor.unsqueeze(2)
         UnCorr=1+torch.eye(Vmat.size(1)).cuda()-UnCorr
 
-        return torch.matmul(UnCorr, Vmat)
+        return torch.matmul(UnCorr, Vmat), UnCorr
 
     def UnCorrVmat_tanh(self,Vmat):
         #pdb.set_trace()
@@ -142,7 +152,7 @@ class Encoder_HieStackedCorr(nn.Module):
         LeftUnCorr = self.act_tanh(self.linear_U2(Vmat))
         UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
 
-        return torch.matmul(UnCorr,Vmat)
+        return torch.matmul(UnCorr,Vmat), UnCorr
 
     def UnCorrVmat_Lrelu(self,Vmat):
         #pdb.set_trace()
@@ -150,12 +160,12 @@ class Encoder_HieStackedCorr(nn.Module):
         LeftUnCorr = self.act_Lrelu(self.linear_U2(Vmat))
         UnCorr=torch.matmul(LeftUnCorr,torch.transpose(RightUnCorr,1,2))
 
-        return torch.matmul(UnCorr,Vmat)
+        return torch.matmul(UnCorr,Vmat), UnCorr
 
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=40):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20):
         """Set the hyper-parameters and build the layers."""
         super(DecoderRNN, self).__init__()
         self.vocab_size=vocab_size
@@ -319,7 +329,9 @@ class BAN_HSC(nn.Module):
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 
-        encoded_features, logits, att=self.forward( v, b, q , t_method=t_method, x_method=x_method, s_method=s_method)
+        atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
+                                                  s_method=s_method)
+        encoded_features = self.encoder(atted_v_feats, t_method)
 
 
         if(s_method == 'BestOne'):
@@ -333,13 +345,17 @@ class BAN_HSC(nn.Module):
 
         return Generated_Captions, logits, att
 
-    def generate_explain(self,encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
+    def generate_explain(self,Vmat, encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1):
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 
         if (s_method == 'BestOne'):
             if (model_num < 7):
-                Generated_Explains = self.decoder.sample_with_answer(encoded_features, vocab_candidates)
+                if(isBUTD):
+                    Generated_Explains = self.decoder.sample_with_answer_BUTD(Vmat, encoded_features, vocab_candidates, isUnion=isUnion)
+                    # Vmat, union_vfeats, vocab_candidates, isUnion=False,
+                else:
+                    Generated_Explains = self.decoder.sample_with_answer(encoded_features, vocab_candidates)
             else:
                 input_ = self.vocab('<start>')
                 _= self.decoder.sample2(encoded_features, input=input_)
@@ -348,19 +364,38 @@ class BAN_HSC(nn.Module):
 
         return Generated_Explains
 
-    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
+    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 
-        encoded_features, logits, att=self.forward( v, b, q , t_method=t_method, x_method=x_method, s_method=s_method)
 
-        if(s_method == 'BestOne'):
-            Generated_Captions=self.decoder.sample(encoded_features)
-        elif(s_method == 'BeamSearch'):
-            Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 
-        return Generated_Captions, logits, att, encoded_features
+        if(isBUTD):
+            atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
+                                                         s_method=s_method)
+            encoded_features, union_vfeats, UMat = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
+                                                                        model_num=model_num, isUnion=isUnion)
+            if (t_method=='uncorr'):
+                dummy_input = torch.eye(atted_v_feats.size(1))  # number of objects
+                dummy_input = dummy_input.unsqueeze(0)
+                dummy_input = dummy_input.repeat(atted_v_feats.size(0), 1, 1)
+                dummy_input = dummy_input.cuda()
+                betas = torch.mean(torch.matmul(UMat, dummy_input), 1)
+                betas = betas.unsqueeze(2)
+                atted_v_feats = betas * atted_v_feats
+            Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False)
+            return Generated_Captions, logits, att, union_vfeats, atted_v_feats # atted_v_feats = Vmat
+        else:
+            atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
+                                                         s_method=s_method)
+            encoded_features = self.encoder(atted_v_feats, t_method)
+            if(s_method == 'BestOne'):
+                Generated_Captions=self.decoder.sample(encoded_features)
+            elif(s_method == 'BeamSearch'):
+                Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
+
+            return Generated_Captions, logits, att, encoded_features, None
 
 
     def forward(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
@@ -409,9 +444,9 @@ class BAN_HSC(nn.Module):
             atted_v_feats=v
 
         #pdb.set_trace()
-        encoded_features=self.encoder(atted_v_feats,t_method)
 
-        return encoded_features, logits, att
+
+        return atted_v_feats, logits, att
 
 
 
@@ -463,7 +498,7 @@ def max2D_k(list2D,k=1):
 
 
 class DecoderTopDown(nn.Module):
-    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=40, paramH=256):
+    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=20, paramH=256):
         """Set the hyper-parameters and build the layers."""
         super(DecoderTopDown, self).__init__()
         self.vocab_size = vocab_size
@@ -481,7 +516,7 @@ class DecoderTopDown(nn.Module):
         self.linear_wa = nn.Linear(self.paramH, 1)
         self.act_tanh=nn.Tanh()
 
-    def forward(self, Vmat, enc_features, union_vfeats, captions, lengths, memory_save=False):
+    def forward(self, Vmat, enc_features, union_vfeats, captions, lengths, memory_save=False, isUnion=False):
         """Decode image feature vectors and generates captions."""
         embeddings = self.embed(captions)
         #embeddings = torch.cat((enc_features.unsqueeze(1), embeddings), 1)
@@ -505,6 +540,16 @@ class DecoderTopDown(nn.Module):
         iter_batch_idx_list=[]
         states1_list=[[],[]]
         states2_list=[[],[]]
+
+        if(isUnion):
+            # pseudo(Vmat_transpose) -> pVmat
+            pVmat=[]
+            for i in range(batch_size):
+                tmp = torch.transpose(Vmat[i, :, :], 0, 1)
+                pVmat.append(torch.pinverse(tmp))
+            pVmat=torch.stack(pVmat,0);
+            beta=torch.matmul(pVmat,union_vfeats.unsqueeze(2))
+            Vmat=beta*Vmat
 
         if (memory_save):
             outputs = torch.cuda.FloatTensor(batch_size, max_seq_length, self.vocab_size).fill_(0)
@@ -577,3 +622,92 @@ class DecoderTopDown(nn.Module):
         #hidden2_out_prev=
 
         #hiddens, _ = self.lstm(packed)
+
+    def sample(self, Vmat, union_vfeats, isUnion=False):
+        """Generate captions for given image features using greedy search."""
+        batch_size = Vmat.size(0)
+        hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
+        states1 = None
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+
+        # if (isUnion):
+        #     # pseudo(Vmat_transpose) -> pVmat
+        #     pVmat = []
+        #     for i in range(batch_size):
+        #         tmp = torch.transpose(Vmat[i, :, :], 0, 1)
+        #         pVmat.append(torch.pinverse(tmp))
+        #     pVmat = torch.stack(pVmat, 0);
+        #     beta = torch.matmul(pVmat, union_vfeats.unsqueeze(2))
+        #     Vmat = beta * Vmat
+
+        sampled_ids = []
+        input = self.embed(torch.cuda.LongTensor([1])) # [1] = <sos>
+        for i in range(self.max_seg_length):
+            #pdb.set_trace()
+            input1 = torch.cat([hidden2, union_vfeats,
+                                input], 1)
+            input1 = input1.unsqueeze(1)
+
+            hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
+
+            atten_logit = self.linear_wa(
+                self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
+            atten_logit = atten_logit.squeeze(2)
+            atten = self.softmax(atten_logit)
+            atten = atten.unsqueeze(1)
+            atten_vfeats = torch.matmul(atten, Vmat)
+            input2 = torch.cat([atten_vfeats, hidden1], 2)
+            hidden2, states2 = self.LanguageLSTM(input2, states2)
+
+            valid_outputs = self.linear(hidden2)  # teacher forcing 방식
+            hidden2 = hidden2.squeeze(1)
+            valid_outputs=valid_outputs.squeeze(1)
+            _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+            sampled_ids.append(predicted)
+            input = self.embed(predicted)
+        sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
+        return sampled_ids
+
+
+    def sample_with_answer_BUTD(self, Vmat, union_vfeats, vocab_candidates, isUnion=False, states=None):
+        """Generate captions for given image features using greedy search."""
+
+        batch_size = Vmat.size(0)
+        hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
+        states1 = None
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+
+
+        sampled_ids = []
+        input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
+        for i in range(self.max_seg_length):
+            #pdb.set_trace()
+            input1 = torch.cat([hidden2, union_vfeats,
+                                input], 1)
+            input1 = input1.unsqueeze(1)
+
+            hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
+
+            atten_logit = self.linear_wa(
+                self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
+            atten_logit = atten_logit.squeeze(2)
+            atten = self.softmax(atten_logit)
+            atten = atten.unsqueeze(1)
+            atten_vfeats = torch.matmul(atten, Vmat)
+            input2 = torch.cat([atten_vfeats, hidden1], 2)
+            hidden2, states2 = self.LanguageLSTM(input2, states2)
+
+            valid_outputs = self.linear(hidden2)  # teacher forcing 방식
+            hidden2 = hidden2.squeeze(1)
+            valid_outputs = valid_outputs.squeeze(1)
+            _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+            if (i == 0): # BUTD not starts with <sos>
+                outputs_candidate = valid_outputs[0, vocab_candidates]
+                _, output_best = outputs_candidate.max(0)
+                predicted = vocab_candidates[output_best]
+                predicted = torch.cuda.LongTensor([predicted])
+            sampled_ids.append(predicted)
+
+            input = self.embed(predicted)  # inputs: (batch_size, embed_size)
+        sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
+        return sampled_ids

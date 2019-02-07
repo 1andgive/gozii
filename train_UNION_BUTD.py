@@ -18,6 +18,8 @@ import utils_hsc as utils
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def main(args):
+    if(args.t_method=='uncorr'):
+        args.isUnion=True
     # Create model directory
     if not os.path.exists(args.model_path):
         os.makedirs(args.model_path) #saving model directory
@@ -102,7 +104,16 @@ def main(args):
 
 
             # Forward, backward and optimize
-            features_encoded,union_vfeats=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num)
+            features_encoded,union_vfeats, UMat=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+            if(args.isUnion):
+                dummy_input=torch.eye(features.size(1)) # number of objects
+                dummy_input=dummy_input.unsqueeze(0)
+                dummy_input=dummy_input.repeat(features.size(0),1,1)
+                dummy_input=dummy_input.cuda()
+                betas=torch.mean(torch.matmul(UMat,dummy_input),1)
+                betas=betas.unsqueeze(2)
+                features=betas*features
+
 
             outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
 
@@ -149,6 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--isUnion', type=bool, default=False)
     args = parser.parse_args()
     print(args)
     main(args)

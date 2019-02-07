@@ -116,17 +116,10 @@ def main(args):
                       .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item()))) 
                 
             # Save the model checkpoints
-            if (i+1) % args.save_step == 0:
-                #pdb.set_trace()
-                if (args.t_method == 'mean'):
-                    model_path = os.path.join(
-                        args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim), 'model-{}-{}.pth'.format(epoch + 1, i + 1))
-                else:
-                    model_path = os.path.join(
-                        args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num,args.LRdim),
-                        'model-{}-{}.pth'.format(epoch + 1, i + 1))
-
-                utils.save_model(model_path,encoder,decoder,epoch,optimizer)
+        model_path = os.path.join(
+            args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
+            'model-{}.pth'.format(epoch + 1))
+        utils.save_model(model_path, encoder, decoder, epoch, optimizer)
 
 
 
