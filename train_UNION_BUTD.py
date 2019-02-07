@@ -132,7 +132,7 @@ def main(args):
             decoder.zero_grad()
             encoder.zero_grad()
             if(torch.cuda.device_count() > 1):
-                loss=loss.sum()
+                loss=loss.mean()
             loss.backward()
             
             optimizer.step()

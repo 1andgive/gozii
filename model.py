@@ -96,11 +96,7 @@ class Encoder_HieStackedCorr(nn.Module):
             enc_features = self.bn(self.linear(features))
             unified_features=features
             
-            dummy_input=torch.eye(Vmat.size(1)) # number of objects
-            dummy_input=dummy_input.unsqueeze(0)
-            dummy_input=dummy_input.repeat(Vmat.size(0),1,1)
-            dummy_input=dummy_input.cuda()
-            betas=torch.mean(torch.matmul(UMat,dummy_input),1)
+            betas=torch.mean(UMat,1)
             betas=betas.unsqueeze(2)
             Vmat=betas*Vmat
             
