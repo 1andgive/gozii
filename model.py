@@ -61,9 +61,11 @@ class Encoder_HieStackedCorr(nn.Module):
         elif(model_num==2):
             if (t_method == 'mean'):
                 features = self.SumVmat(Vmat)
+                Vmat= Vmat.size(1) * Vmat # BUTD uses this Vmat again
             elif (t_method == 'uncorr'):
                 features, UMat = self.UnCorrVmat(Vmat)
                 features = self.SumVmat(features)
+                Vmat= Vmat.size(1) * Vmat
         elif(model_num==3):
             if (t_method == 'mean'):
                 features = self.MeanVmat(Vmat)
