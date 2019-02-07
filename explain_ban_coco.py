@@ -3,6 +3,7 @@ import os
 import sys
 
 
+
 import argparse
 import json
 import progressbar
@@ -16,7 +17,9 @@ from build_vocab import Vocabulary
 from model_explain import Sen_Sim
 from model_explain import Relev_Check, CaptionVocabCandidate
 
-sys.path.append('D:\\VQA\\BAN')
+from address_server_XAI import *
+
+sys.path.append(addr_BAN)
 
 from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
@@ -78,7 +81,7 @@ def get_answer(p, dataloader):
     _m, idx = p.max(0)
     return dataloader.dataset.label2ans[idx.item()]
 
-def get_image(q_id, Dict_qid2vid, data_root='D:\\Data_Share\\Datas\\VQA_COCO\\Images\\test2015'): #q_id => single scalar
+def get_image(q_id, Dict_qid2vid, data_root=addr_test_imgs): #q_id => single scalar
     img_id=Dict_qid2vid[q_id]
     img_name='COCO_test2015_%012d.jpg' % img_id
     img_path=os.path.join(data_root,img_name)
@@ -329,7 +332,7 @@ if __name__ == '__main__':
     name = 'test2015'
 
     question_path = os.path.join(
-        'codes\\tools\\data', 'v2_OpenEnded_mscoco_%s_questions.json' % \
+        'codes','tools','data', 'v2_OpenEnded_mscoco_%s_questions.json' % \
                   (name + '2014' if 'test' != name[:4] else name))
     questions = sorted(json.load(open(question_path))['questions'],
                        key=lambda x: x['question_id'])

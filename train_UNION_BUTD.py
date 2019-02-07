@@ -11,6 +11,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 import pdb
 import utils_hsc as utils
+from address_server_XAI import *
 
 
 
@@ -39,8 +40,8 @@ def main(args):
 
 
     # Build data loader
-    coco_cap_train_path='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json'
-    coco_cap_val_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_val2014.json'
+    coco_cap_train_path=addr_coco_cap_train_path
+    coco_cap_val_path = addr_coco_cap_val_path
     data_loader = BottomUp_get_loader('train+val', [coco_cap_train_path, coco_cap_val_path], vocab,
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers)

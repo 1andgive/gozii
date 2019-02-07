@@ -19,7 +19,9 @@ with warnings.catch_warnings():
 from nltk.tokenize import word_tokenize
 import sys
 
-sys.path.append('D:\\VQA\\BAN')
+from address_server_XAI import *
+
+sys.path.append(addr_BAN)
 
 from codes.dataset import VQAFeatureDataset
 from torch.utils.data import ConcatDataset
@@ -73,7 +75,7 @@ class CocoDataset(data.Dataset):
 class BottomUp_CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
 
-    def __init__(self, name, json, vocab, dataroot='codes\\tools\\data', hdf5path='D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\hdf5'):
+    def __init__(self, name, json, vocab, dataroot=addr_dataroot, hdf5path=addr_hdf5path):
         """Set the path for images, captions and vocabulary wrapper.
 
         Args:
