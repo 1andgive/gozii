@@ -388,16 +388,9 @@ class BAN_HSC(nn.Module):
         if(isBUTD):
             atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
                                                          s_method=s_method)
-            encoded_features, union_vfeats, UMat = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
+            encoded_features, union_vfeats, atted_v_feats = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
                                                                         model_num=model_num, isUnion=isUnion)
-            if (t_method=='uncorr'):
-                dummy_input = torch.eye(atted_v_feats.size(1))  # number of objects
-                dummy_input = dummy_input.unsqueeze(0)
-                dummy_input = dummy_input.repeat(atted_v_feats.size(0), 1, 1)
-                dummy_input = dummy_input.cuda()
-                betas = torch.mean(torch.matmul(UMat, dummy_input), 1)
-                betas = betas.unsqueeze(2)
-                atted_v_feats = betas * atted_v_feats
+
             Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False)
             return Generated_Captions, logits, att, union_vfeats, atted_v_feats # atted_v_feats = Vmat
         else:

@@ -105,6 +105,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     qIds = torch.IntTensor(N).zero_()
     idx = 0
     bar = progressbar.ProgressBar(maxval=N).start()
+    print('t_method : {}, x_method : {}, isBUTD : {}, isUnion : {}'.format(t_method_,x_method_,args.isBUTD,args.isUnion))
     for v, b, q, i in iter(dataloader):
         bar.update(idx)
         batch_size = v.size(0)
