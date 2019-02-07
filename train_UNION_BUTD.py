@@ -54,17 +54,19 @@ def main(args):
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim)
     decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers)
+    criterion = nn.CrossEntropyLoss()
     
     if(torch.cuda.device_count() > 1):
         encoder=nn.DataParallel(encoder)
         decoder=nn.DataParallel(decoder)
+        criterion=nn.DataParallel(criterion)
     encoder.to(device)
     decoder.to(device)
 
 
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
+    
     # if(args.t_method == 'mean'):
     #     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     # elif(args.t_method == 'uncorr'):
@@ -129,7 +131,10 @@ def main(args):
 
             decoder.zero_grad()
             encoder.zero_grad()
+            if(torch.cuda.device_count() > 1):
+                loss=loss.sum()
             loss.backward()
+            
             optimizer.step()
             
             i_train+=1

@@ -106,7 +106,7 @@ class Encoder_HieStackedCorr(nn.Module):
         elif (t_method == 'mean'):
             enc_features=self.bn(self.linear(features))
             unified_features=features
-            return enc_features, unified_features, None
+            return enc_features, unified_features, Vmat
 
     def forward(self, Vmat, t_method='mean', model_num=1):
         enc_features,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num)
