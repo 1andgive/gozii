@@ -1,0 +1,17 @@
+Namespace(LRdim=64, batch_size=600, checkpoint_dir='None', crop_size=224, embed_size=256, hidden_size=512, image_dir='data/resized2014', isUnion=False, learning_rate=0.001, log_step=100, model_num=2, model_path='models_BUTD/', num_epochs=20, num_layers=1, num_workers=0, t_method='mean', vocab_path='data/vocab.pkl')
+loading features from h5 file
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=0.44s)
+creating index...
+index created!
+loading features from h5 file
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=0.30s)
+creating index...
+index created!
+t_method : mean, isUnion : False, model_num : 2
+Epoch [0/20], Step [0/1028], Loss: 10.1488, Perplexity: 25560.0186

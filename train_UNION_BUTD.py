@@ -117,21 +117,12 @@ def main(args):
 
             # Forward, backward and optimize
             if(torch.cuda.device_count() > 1):
-                features_encoded,union_vfeats, UMat=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+                features_encoded,union_vfeats, features=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
             else:
-                features_encoded,union_vfeats, UMat=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
-            if(args.isUnion):
-                dummy_input=torch.eye(features.size(1)) # number of objects
-                dummy_input=dummy_input.unsqueeze(0)
-                dummy_input=dummy_input.repeat(features.size(0),1,1)
-                dummy_input=dummy_input.cuda()
-                betas=torch.mean(torch.matmul(UMat,dummy_input),1)
-                betas=betas.unsqueeze(2)
-                features=betas*features
-
+                features_encoded,union_vfeats, features=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
 
             outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
-            print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
+            #print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
             #pdb.set_trace()
             outputs=pack_padded_sequence(outputs,lengths,batch_first=True)[0]
             loss = criterion(outputs, targets)

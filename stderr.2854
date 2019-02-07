@@ -1,49 +1,0 @@
-                                                                                 N/A% (0 of 12060) |                        | Elapsed Time: 0:00:00 ETA:  --:--:--                                                                                 N/A% (0 of 12060) |                        | Elapsed Time: 0:00:09 ETA:  --:--:--/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/nn/modules/rnn.py:179: RuntimeWarning: RNN module weights are not part of single contiguous chunk of memory. This means they need to be compacted at every call, possibly greatly increasing memory usage. To compact weights again call flatten_parameters().
-  self.dropout, self.training, self.bidirectional, self.batch_first)
-Traceback (most recent call last):
-  File "train_UNION_BUTD.py", line 183, in <module>
-    main(args)
-  File "train_UNION_BUTD.py", line 141, in main
-    loss.backward()
-  File "/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/tensor.py", line 102, in backward
-    torch.autograd.backward(self, gradient, retain_graph, create_graph)
-  File "/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/autograd/__init__.py", line 90, in backward
-    allow_unreachable=True)  # allow_unreachable flag
-  File "/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/autograd/function.py", line 76, in apply
-    return self._forward_cls.backward(self, *args)
-  File "/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/nn/parallel/_functions.py", line 72, in backward
-    scattered_grads = Scatter.apply(ctx.input_gpus, ctx.input_sizes, ctx.dim, grad_output)
-  File "/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/nn/parallel/_functions.py", line 89, in forward
-    outputs = comm.scatter(input, target_gpus, chunk_sizes, ctx.dim, streams)
-  File "/home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/cuda/comm.py", line 148, in scatter
-    return tuple(torch._C._scatter(tensor, devices, chunk_sizes, dim, streams))
-RuntimeError: CUDA out of memory. Tried to allocate 1.73 GiB (GPU 0; 11.91 GiB total capacity; 9.16 GiB already allocated; 295.12 MiB free; 1.88 GiB cached) (malloc at /opt/conda/conda-bld/pytorch_1544174967633/work/aten/src/THC/THCCachingAllocator.cpp:231)
-frame #0: c10::Error::Error(c10::SourceLocation, std::string const&) + 0x45 (0x7f53f0032cc5 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libc10.so)
-frame #1: <unknown function> + 0x1337011 (0x7f53f3b00011 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #2: <unknown function> + 0x133798a (0x7f53f3b0098a in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #3: THCStorage_resize + 0xf8 (0x7f53f3b05d48 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #4: <unknown function> + 0x1360ab9 (0x7f53f3b29ab9 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #5: THCTensor_resizeNd + 0x39 (0x7f53f3b19709 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #6: THCudaTensor_newClone + 0x20 (0x7f53f3b1a890 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #7: at::CUDAFloatType::_th_clone(at::Tensor const&) const + 0x3a (0x7f53f3a2105a in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2_gpu.so)
-frame #8: at::native::clone(at::Tensor const&) + 0x4d (0x7f53f07acafd in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2.so)
-frame #9: at::TypeDefault::clone(at::Tensor const&) const + 0x55 (0x7f53f0a23ad5 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2.so)
-frame #10: torch::autograd::VariableType::clone(at::Tensor const&) const + 0x251 (0x7f53ed519421 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch.so.1)
-frame #11: at::native::contiguous(at::Tensor const&) + 0x1f5 (0x7f53f0853bf5 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2.so)
-frame #12: at::TypeDefault::contiguous(at::Tensor const&) const + 0x55 (0x7f53f0a18195 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libcaffe2.so)
-frame #13: torch::autograd::VariableType::contiguous(at::Tensor const&) const + 0x11f (0x7f53ed53bbaf in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch.so.1)
-frame #14: torch::cuda::scatter(at::Tensor const&, c10::ArrayRef<long>, c10::optional<std::vector<long, std::allocator<long> > > const&, long, c10::optional<std::vector<c10::optional<at::cuda::CUDAStream>, std::allocator<c10::optional<at::cuda::CUDAStream> > > > const&) + 0x457 (0x7f54206b21c7 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch_python.so)
-frame #15: <unknown function> + 0x4f9ee1 (0x7f54206b7ee1 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch_python.so)
-frame #16: <unknown function> + 0x111e36 (0x7f54202cfe36 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch_python.so)
-<omitting python frames>
-frame #27: THPFunction_apply(_object*, _object*) + 0x5dd (0x7f54204cb40d in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch_python.so)
-frame #40: torch::autograd::PyFunction::apply(std::vector<torch::autograd::Variable, std::allocator<torch::autograd::Variable> >&&) + 0x193 (0x7f54204c7b23 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch_python.so)
-frame #41: torch::autograd::Engine::evaluate_function(torch::autograd::FunctionTask&) + 0x3a6 (0x7f53ed2d97a6 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch.so.1)
-frame #42: torch::autograd::Engine::thread_main(torch::autograd::GraphTask*) + 0xc0 (0x7f53ed2db880 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch.so.1)
-frame #43: torch::autograd::Engine::thread_init(int) + 0xc7 (0x7f53ed2d8247 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch.so.1)
-frame #44: torch::autograd::python::PythonEngine::thread_init(int) + 0x2a (0x7f54204c23aa in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/lib/libtorch_python.so)
-frame #45: <unknown function> + 0xb8678 (0x7f542123a678 in /home/user/anaconda3/envs/sj_torch1.0/lib/python3.6/site-packages/torch/../../../libstdc++.so.6)
-frame #46: <unknown function> + 0x76ba (0x7f543218e6ba in /lib/x86_64-linux-gnu/libpthread.so.0)
-frame #47: clone + 0x6d (0x7f5431ec441d in /lib/x86_64-linux-gnu/libc.so.6)
-
-                                                                                 

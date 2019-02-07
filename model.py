@@ -90,11 +90,23 @@ class Encoder_HieStackedCorr(nn.Module):
                 features = self.MeanVmat(features)
 
         if(t_method == 'uncorr'):
+            # uncorr => isUnion : True
             enc_features = self.bn(self.linear(features))
-            return enc_features, features, UMat
+            unified_features=features
+            
+            dummy_input=torch.eye(Vmat.size(1)) # number of objects
+            dummy_input=dummy_input.unsqueeze(0)
+            dummy_input=dummy_input.repeat(Vmat.size(0),1,1)
+            dummy_input=dummy_input.cuda()
+            betas=torch.mean(torch.matmul(UMat,dummy_input),1)
+            betas=betas.unsqueeze(2)
+            Vmat=betas*Vmat
+            
+            return enc_features, unified_features, Vmat
         elif (t_method == 'mean'):
             enc_features=self.bn(self.linear(features))
-            return enc_features, features, None
+            unified_features=features
+            return enc_features, unified_features, None
 
     def forward(self, Vmat, t_method='mean', model_num=1):
         enc_features,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num)
@@ -711,3 +723,5 @@ class DecoderTopDown(nn.Module):
             input = self.embed(predicted)  # inputs: (batch_size, embed_size)
         sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
+        
+        
