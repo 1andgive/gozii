@@ -53,7 +53,7 @@ def main(args):
 
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim)
-    decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers)
+    decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers, paramH=args.paramH)
     criterion = nn.CrossEntropyLoss()
     
     if(torch.cuda.device_count() > 1):
@@ -164,6 +164,7 @@ if __name__ == '__main__':
     # Model parameters
     parser.add_argument('--embed_size', type=int , default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int , default=512, help='dimension of lstm hidden states')
+    parser.add_argument('--paramH', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num_layers', type=int , default=1, help='number of layers in lstm')
     
     parser.add_argument('--num_epochs', type=int, default=20)

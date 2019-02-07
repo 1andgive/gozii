@@ -30,11 +30,13 @@ class Vocabulary(object):
 def build_vocab(json, threshold):
     """Build a simple vocabulary wrapper."""
 
-    coco = COCO(json)
+    coco_train = COCO(json[0])
+    coco_val = COCO(json[1])
+    coco={**coco_train.anns,**coco_val.anns}
     counter = Counter()
-    ids = coco.anns.keys()
+    ids = coco.keys()
     for i, id in enumerate(ids):
-        caption = str(coco.anns[id]['caption'])
+        caption = str(coco[id]['caption'])
         tokens = nltk.tokenize.word_tokenize(caption.lower())
         counter.update(tokens)
 
@@ -58,7 +60,7 @@ def build_vocab(json, threshold):
     return vocab
 
 def main(args):
-    vocab = build_vocab(json=args.caption_path, threshold=args.threshold)
+    vocab = build_vocab(json=[args.caption_train_path, args.caption_val_path], threshold=args.threshold)
     vocab_path = args.vocab_path
     with open(vocab_path, 'wb') as f:
         pickle.dump(vocab, f)
@@ -68,12 +70,15 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--caption_path', type=str, 
+    parser.add_argument('--caption_train_path', type=str,
                         default='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json',
+                        help='path for train annotation file')
+    parser.add_argument('--caption_val_path', type=str,
+                        default='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_val2014.json',
                         help='path for train annotation file')
     parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl', 
                         help='path for saving vocabulary wrapper')
-    parser.add_argument('--threshold', type=int, default=4, 
+    parser.add_argument('--threshold', type=int, default=5,
                         help='minimum word count threshold')
     args = parser.parse_args()
     main(args)
