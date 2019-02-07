@@ -12,6 +12,7 @@ from torchvision import transforms
 import pdb
 import utils_hsc as utils
 from address_server_XAI import *
+import progressbar
 
 
 
@@ -51,8 +52,14 @@ def main(args):
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
 
     # Build the models
-    encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim).to(device)
-    decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers).to(device)
+    encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim)
+    decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers)
+    
+    if(torch.cuda.device_count() > 1):
+        encoder=nn.DataParallel(encoder)
+        decoder=nn.DataParallel(decoder)
+    encoder.to(device)
+    decoder.to(device)
 
 
 
@@ -61,8 +68,7 @@ def main(args):
     # if(args.t_method == 'mean'):
     #     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     # elif(args.t_method == 'uncorr'):
-    params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters()) + list(
-        encoder.linear_U1.parameters()) + list(encoder.linear_U2.parameters())
+    params = list(decoder.parameters()) + list(encoder.parameters())
     #params = list(decoder.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
     
@@ -70,6 +76,8 @@ def main(args):
     total_step = len(data_loader)
 
     epoch_start=0
+    
+    print('t_method : {}, isUnion : {}, model_num : {}'.format(args.t_method, args.isUnion, args.model_num))
 
     if (args.checkpoint_dir != 'None'):
         model_hsc_path = os.path.join(
@@ -84,11 +92,14 @@ def main(args):
 
     if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim))):
         os.makedirs(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim)))
+    N=args.num_epochs * len(data_loader)
+    bar = progressbar.ProgressBar(maxval=N).start()
+    i_train=0
     for epoch in range(epoch_start,args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
         for i, (features, spatials, captions, lengths) in enumerate(data_loader):
-            
+            bar.update(i_train)
             # Set mini-batch dataset
             # if(args.model_num > 6):
             #     lengths[:]=[x-1 for x in lengths] #어차피 <sos> 나 <eos> 둘중 하나는 양쪽 (target, input)에서 제거된다.
@@ -105,7 +116,10 @@ def main(args):
 
 
             # Forward, backward and optimize
-            features_encoded,union_vfeats, UMat=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+            if(torch.cuda.device_count() > 1):
+                features_encoded,union_vfeats, UMat=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+            else:
+                features_encoded,union_vfeats, UMat=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
             if(args.isUnion):
                 dummy_input=torch.eye(features.size(1)) # number of objects
                 dummy_input=dummy_input.unsqueeze(0)
@@ -117,7 +131,7 @@ def main(args):
 
 
             outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
-
+            print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
             #pdb.set_trace()
             outputs=pack_padded_sequence(outputs,lengths,batch_first=True)[0]
             loss = criterion(outputs, targets)
@@ -126,6 +140,8 @@ def main(args):
             encoder.zero_grad()
             loss.backward()
             optimizer.step()
+            
+            i_train+=1
 
             # Print log info
             if i % args.log_step == 0:

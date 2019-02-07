@@ -526,10 +526,10 @@ class DecoderTopDown(nn.Module):
         # loop with padded sequence length
         # eliminate data that meet up its original length
 
-        batch_size=len(lengths)
+        batch_size=captions.size(0)
         iter_batch_idx=list(range(batch_size))
 
-        max_seq_length=lengths[0]
+        max_seq_length=captions.size(1)
 
 
 
