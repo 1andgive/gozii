@@ -65,6 +65,7 @@ def parse_args():
     parser.add_argument('--isBUTD', type=bool, default=False)
     parser.add_argument('--isUnion', type=bool, default=False)
     parser.add_argument('--isFeeding', type=bool, default=False)
+    parser.add_argument('--paramH', type=int, default=256, help='dimension of lstm hidden states')
     args = parser.parse_args()
     return args
 
@@ -366,10 +367,11 @@ if __name__ == '__main__':
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim).to(device)
     if(args.isBUTD):
-        decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab),
-                                 args.num_layers).to(device)
-        args.save_fig_loc=args.save_fig_loc+'model_BUTD/'
-        args.hsc_path='models_BUTD/'
+
+        decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers,
+                                 paramH=args.paramH).to(device)
+        args.save_fig_loc=args.save_fig_loc+args.hsc_path
+        #args.hsc_path='models_BUTD/'
         model_file='model-{}.pth'.format(args.hsc_epoch)
     else:
 

@@ -5,7 +5,6 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 import numpy as np
 from torch.nn.utils.weight_norm import weight_norm
-
 # model = expectation, relu
 # model2 = probability, relu
 # model3 = expectation, tanh
@@ -95,7 +94,7 @@ class Encoder_HieStackedCorr(nn.Module):
             # uncorr => isUnion : True
             enc_features = self.bn(self.linear(features))
             unified_features=features
-            
+
             betas=torch.mean(UMat,1)
             betas=betas.unsqueeze(2)
             Vmat=betas*Vmat
@@ -183,6 +182,7 @@ class DecoderRNN(nn.Module):
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seg_length = max_seq_length
+        self.softmax=nn.Softmax(dim=1)
         
     def forward(self, features, captions, lengths, model_num=1):
         """Decode image feature vectors and generates captions."""
@@ -285,6 +285,7 @@ class DecoderRNN(nn.Module):
 
                 hiddens, states[beam_idx] = self.lstm(inputs[beam_idx], states[beam_idx])  # hiddens: (batch_size, 1, hidden_size)
                 outputs = self.linear(hiddens.squeeze(1))  # outputs:  (batch_size, vocab_size)
+                outputs=self.softmax(outputs)
                 tmp_probs, predicted = max_k(outputs, dim_=1, k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
 
 
@@ -462,11 +463,53 @@ def max_k(inputTensor,dim_=0,k=1):
         idx_att=torch.transpose(idx_att,0,dim_)
         inputTensor=torch.transpose(inputTensor,0,dim_)
     idx_att=idx_att[:k]
-    outputTensor = inputTensor[idx_att.squeeze()]
+    #outputTensor = inputTensor[idx_att.squeeze()]
+    outputTensor = torch.gather(inputTensor,0,idx_att)
     if (dim_ != 0):
         idx_att = torch.transpose(idx_att, 0, dim_)
         outputTensor = torch.transpose(outputTensor, 0, dim_)
     return outputTensor, idx_att
+
+def max_k_NoDuplicate(inputTensor, sample_ids,dim_=0,k=1):
+    word_domain_size=len(sample_ids)+k
+
+    Probs, idx_outs = max_k(inputTensor, dim_=dim_, k=word_domain_size)
+    Max_k_idx = idx_outs[:, :word_domain_size]
+    duplicate_list=[]
+    for j in range(word_domain_size):
+        predicted = Max_k_idx[:, j]
+        duplicate_idx=batchwise_in(predicted, sample_ids)
+        duplicate_list.append(duplicate_idx)
+
+    #print(duplicate_list)
+    #print(Max_k_idx[duplicate_idx,:])
+    #print(Max_k_idx[duplicate_list[2], :])
+    Max_k_idx=filter_out_duplicate(Max_k_idx,duplicate_list)
+    #print(Max_k_idx[duplicate_idx, :])
+    #print(Max_k_idx[duplicate_list[2], :])
+    #pdb.set_trace()
+    Max_k_idx=Max_k_idx[:,:k] # Non-duplicative(toward sample_ids) top-k indicies
+    return torch.gather(inputTensor,1,Max_k_idx), Max_k_idx
+
+def batchwise_in(batch_elem, batch_list):
+    if not batch_list: # if empty list
+        return []
+    list_len=len(batch_list)
+    is_match_=[]
+    for k in range(list_len):
+        is_match_.append(batch_elem==batch_list[k])
+    is_match_=torch.stack(is_match_,1)
+    find_idx=is_match_.sum(1)
+
+    return find_idx.nonzero()
+
+def filter_out_duplicate(inputTensor, filter):
+    filt_len=len(filter)
+    for i in range(filt_len-2,0,-1):
+        for j in range(i,filt_len-1):
+            inputTensor[filter[i],j]=inputTensor[filter[i],j+1]
+    return inputTensor
+
 
 def append_elemwise(list1, list2):
     assert len(list1)==len(list2)
@@ -630,8 +673,6 @@ class DecoderTopDown(nn.Module):
         """Generate captions for given image features using greedy search."""
         batch_size = Vmat.size(0)
         hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
-        states1 = None
-        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
 
         # if (isUnion):
         #     # pseudo(Vmat_transpose) -> pVmat
@@ -647,25 +688,16 @@ class DecoderTopDown(nn.Module):
         input = self.embed(torch.cuda.LongTensor([1])) # [1] = <sos>
         for i in range(self.max_seg_length):
             #pdb.set_trace()
-            input1 = torch.cat([hidden2, union_vfeats,
-                                input], 1)
-            input1 = input1.unsqueeze(1)
-
-            hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
-
-            atten_logit = self.linear_wa(
-                self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
-            atten_logit = atten_logit.squeeze(2)
-            atten = self.softmax(atten_logit)
-            atten = atten.unsqueeze(1)
-            atten_vfeats = torch.matmul(atten, Vmat)
-            input2 = torch.cat([atten_vfeats, hidden1], 2)
-            hidden2, states2 = self.LanguageLSTM(input2, states2)
-
-            valid_outputs = self.linear(hidden2)  # teacher forcing 방식
-            hidden2 = hidden2.squeeze(1)
-            valid_outputs=valid_outputs.squeeze(1)
-            _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+            valid_outputs=self.BUTD_LSTM_Module(Vmat,hidden2,union_vfeats,input)
+            # prevent duplicate elements in a list
+            _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
+            for j in range(self.max_seg_length):
+                predicted=idx_outs[:,j]
+                if (predicted in sampled_ids):
+                    continue
+                else:
+                    break
+                #_, predicted = valid_outputs.max(1)  # predicted: (batch_size)
             sampled_ids.append(predicted)
             input = self.embed(predicted)
         sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
@@ -677,33 +709,22 @@ class DecoderTopDown(nn.Module):
 
         batch_size = Vmat.size(0)
         hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
-        states1 = None
-        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
 
 
         sampled_ids = []
         input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
         for i in range(self.max_seg_length):
             #pdb.set_trace()
-            input1 = torch.cat([hidden2, union_vfeats,
-                                input], 1)
-            input1 = input1.unsqueeze(1)
+            valid_outputs = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input)
+            _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
+            for j in range(self.max_seg_length):
+                predicted = idx_outs[:,j]
+                if (predicted in sampled_ids):
+                    continue
+                else:
+                    break
+                # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
 
-            hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
-
-            atten_logit = self.linear_wa(
-                self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
-            atten_logit = atten_logit.squeeze(2)
-            atten = self.softmax(atten_logit)
-            atten = atten.unsqueeze(1)
-            atten_vfeats = torch.matmul(atten, Vmat)
-            input2 = torch.cat([atten_vfeats, hidden1], 2)
-            hidden2, states2 = self.LanguageLSTM(input2, states2)
-
-            valid_outputs = self.linear(hidden2)  # teacher forcing 방식
-            hidden2 = hidden2.squeeze(1)
-            valid_outputs = valid_outputs.squeeze(1)
-            _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
             if (i == 0): # BUTD not starts with <sos>
                 outputs_candidate = valid_outputs[0, vocab_candidates]
                 _, output_best = outputs_candidate.max(0)
@@ -714,5 +735,94 @@ class DecoderTopDown(nn.Module):
             input = self.embed(predicted)  # inputs: (batch_size, embed_size)
         sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
+
+    def BUTD_LSTM_Module(self, Vmat, init_hidden2, vfeats, init_input, states1=None):
+        hidden2= init_hidden2
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+        input1 = torch.cat([hidden2, vfeats,
+                            init_input], 1)
+        input1 = input1.unsqueeze(1)
+
+        hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
+
+        atten_logit = self.linear_wa(
+            self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
+        atten_logit = atten_logit.squeeze(2)
+        atten = self.softmax(atten_logit)
+        atten = atten.unsqueeze(1)
+        atten_vfeats = torch.matmul(atten, Vmat)
+        input2 = torch.cat([atten_vfeats, hidden1], 2)
+        hidden2, states2 = self.LanguageLSTM(input2, states2)
+
+        valid_outputs = self.linear(hidden2)  # teacher forcing 방식
+        hidden2 = hidden2.squeeze(1)
+        valid_outputs = valid_outputs.squeeze(1)
+        return valid_outputs
+
+    def BeamSearch(self, Vmat, union_vfeats, NumBeams=5):
+        """Generate captions for given image features using greedy search."""
+        batch_size=Vmat.size(0)
+        hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
+
+        input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
+        input=input.repeat(batch_size,1)
+        input = [input for x in range(NumBeams)]
+        hidden2 = [hidden2 for x in range(NumBeams)]
+        sample_ids = [[] for x in range(NumBeams)]
+        Probs = torch.zeros(batch_size,NumBeams).cuda()
+
+        tmp_2step_samples_ids=[[[] for x in range(NumBeams)] for y in range(NumBeams)]
+        tmp_2step_Probs = [[] for y in range(NumBeams)]
+
+        for i in range(self.max_seg_length):
+            for beam_idx in range(NumBeams):
+
+                valid_outputs = self.BUTD_LSTM_Module(Vmat, hidden2[beam_idx], union_vfeats, input[beam_idx])
+                valid_outputs=self.softmax(valid_outputs)
+                tmp_probs, predicted = max_k_NoDuplicate(valid_outputs, sample_ids[beam_idx], dim_=1, k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+
+                # if intial step, directly go to next step
+                if( i == 0):
+                    sample_ids=[[predicted[:,idx]] for idx in range(NumBeams)]
+                    input = [self.embed(predicted[:,tmp_idx]) for tmp_idx in range(NumBeams)]  # inputs: (batch_size, embed_size)
+                    Probs = Probs+torch.log(tmp_probs)
+
+                # find best-k among k*k candidates
+                else:
+                    tmp_2step_samples_ids[beam_idx]=[sample_ids[beam_idx].copy() for tmp_idx in range(NumBeams)]
+                    [tmp_2step_samples_ids[beam_idx][tmp_idx].append(predicted[:,tmp_idx]) for tmp_idx in range(NumBeams)]
+                    tmp_2step_Probs[beam_idx] = (Probs + torch.log(tmp_probs)).unsqueeze(2) #Probs should be cumulative probability
+
+                # sample_ids[beam_idx].append(predicted[beam_idx])
+                # inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
+                # inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
+
+
+            if (i>0):
+                # first, select best new elements for sample_ids from tmp_2step_samples_ids
+                # select inputs for the next step
+                Probs,Top_k_idx0,Top_k_idx1=max2D_k(tmp_2step_Probs,k=NumBeams) # Top_k_idx2D => (rows,cols) and rows corresponds to beam_idx value of sample_ids and Probs
+                sample_ids = [[] for x in range(NumBeams)]
+                for beam_idx in range(NumBeams):
+
+                    for b in range(batch_size):
+
+                        tmp_trajectory=torch.stack(tmp_2step_samples_ids[int(Top_k_idx0[b,beam_idx].item())][int(Top_k_idx1[b,beam_idx].item())],1)
+                        tmp_trajectory=tmp_trajectory[b,:]
+                        sample_ids[beam_idx].append(tmp_trajectory)
+
+                    sample_ids[beam_idx] = torch.stack(sample_ids[beam_idx], 0)
+                    sample_ids[beam_idx] = torch.transpose(sample_ids[beam_idx], 0, 1)
+                    sample_ids[beam_idx] = list(sample_ids[beam_idx])
+#np.idx_(Top_k_idx0[:,beam_idx],Top_k_idx1[:,beam_idx])
+                    #sample_ids[beam_idx]=
+                input[beam_idx] = self.embed(sample_ids[beam_idx][-1])
+
+        for beam_idx in range(NumBeams):
+            sample_ids[beam_idx]=torch.stack(sample_ids[beam_idx], 1)
+        sampled_id_list = torch.stack(sample_ids,2)
+
+        return sampled_id_list
+
         
         
