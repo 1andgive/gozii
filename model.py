@@ -673,6 +673,8 @@ class DecoderTopDown(nn.Module):
         """Generate captions for given image features using greedy search."""
         batch_size = Vmat.size(0)
         hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+        states1 = None
 
         # if (isUnion):
         #     # pseudo(Vmat_transpose) -> pVmat
@@ -688,7 +690,11 @@ class DecoderTopDown(nn.Module):
         input = self.embed(torch.cuda.LongTensor([1])) # [1] = <sos>
         for i in range(self.max_seg_length):
             #pdb.set_trace()
-            valid_outputs=self.BUTD_LSTM_Module(Vmat,hidden2,union_vfeats,input)
+            valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input,
+                                                                             states1=states1, states2=states2)
+
+            # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+
             # prevent duplicate elements in a list
             _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
             for j in range(self.max_seg_length):
@@ -697,7 +703,7 @@ class DecoderTopDown(nn.Module):
                     continue
                 else:
                     break
-                #_, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+
             sampled_ids.append(predicted)
             input = self.embed(predicted)
         sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
@@ -709,13 +715,14 @@ class DecoderTopDown(nn.Module):
 
         batch_size = Vmat.size(0)
         hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
-
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+        states1 = None
 
         sampled_ids = []
         input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
         for i in range(self.max_seg_length):
             #pdb.set_trace()
-            valid_outputs = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input)
+            valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input, states1=states1, states2=states2)
             _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
             for j in range(self.max_seg_length):
                 predicted = idx_outs[:,j]
@@ -736,9 +743,8 @@ class DecoderTopDown(nn.Module):
         sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
 
-    def BUTD_LSTM_Module(self, Vmat, init_hidden2, vfeats, init_input, states1=None):
+    def BUTD_LSTM_Module(self, Vmat, init_hidden2, vfeats, init_input, states1=None, states2=None):
         hidden2= init_hidden2
-        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
         input1 = torch.cat([hidden2, vfeats,
                             init_input], 1)
         input1 = input1.unsqueeze(1)
@@ -757,12 +763,14 @@ class DecoderTopDown(nn.Module):
         valid_outputs = self.linear(hidden2)  # teacher forcing 방식
         hidden2 = hidden2.squeeze(1)
         valid_outputs = valid_outputs.squeeze(1)
-        return valid_outputs
+        return valid_outputs, hidden2, states1, states2
 
     def BeamSearch(self, Vmat, union_vfeats, NumBeams=5):
         """Generate captions for given image features using greedy search."""
         batch_size=Vmat.size(0)
         hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+        states1 = None
 
         input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
         input=input.repeat(batch_size,1)
@@ -777,7 +785,8 @@ class DecoderTopDown(nn.Module):
         for i in range(self.max_seg_length):
             for beam_idx in range(NumBeams):
 
-                valid_outputs = self.BUTD_LSTM_Module(Vmat, hidden2[beam_idx], union_vfeats, input[beam_idx])
+                valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input,
+                                                                                 states1=states1, states2=states2)
                 valid_outputs=self.softmax(valid_outputs)
                 tmp_probs, predicted = max_k_NoDuplicate(valid_outputs, sample_ids[beam_idx], dim_=1, k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
 

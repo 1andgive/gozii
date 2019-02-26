@@ -54,7 +54,7 @@ def parse_args():
     parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
-    parser.add_argument('--vocab_path', type=str, default='data/vocab_threshold_0.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_caption/')
     parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
@@ -141,32 +141,9 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
                         captions_list.append(caption)
 
                 answer_list.append(get_answer(logits.data[idx2], dataloader))
-            #pdb.set_trace()
-            if(args.isFeeding):
-                ##################################################################### EXPLAIN ##################################################################################
-                word_candidate_idx_in_coco_vocab = CaptionVocabCandidate(question_list[0], answer_list[0], vocab)
-                generated_captions=caption_generator.generate_explain(Vmat, encoded_feats,word_candidate_idx_in_coco_vocab,t_method=t_method_, x_method=args.x_method, s_method=s_method_,
-                                                                      isBUTD=args.isBUTD , isUnion=args.isUnion, model_num=args_.model_num)
-                captions_list=[]
-                for idx2 in range(len(i)):
-                    if (s_method_ == 'BestOne'):
-                        caption = [vocab.idx2word[generated_captions[idx2][w_idx].item()] for w_idx in
-                                   range(generated_captions.size(1))]
-                        captions_list.append(caption)
-
-                x_method_ = args.x_method+ '_Explain'
-                if not os.path.exists(
-                        os.path.join(args.save_fig_loc, 'model{}'.format(args.model_num), args.t_method, x_method_,
-                                     args.s_method)):
-                    os.makedirs(
-                        os.path.join(args.save_fig_loc, 'model{}'.format(args.model_num), args.t_method, x_method_,
-                                     args.s_method))
-                #print(captions_list[0])
-                ##################################################################### EXPLAIN ##################################################################################
 
 
 
-        caption_=captions_list[0]
         RelScore=Relev_Check(captions_list[0], q, answer_list[0], caption_generator.BAN.module.w_emb, dataloader.dataset.dictionary)
 
         if RelScore is None:
