@@ -12,6 +12,8 @@ if(platform.system() == 'Linux'):
     addr_hdf5path='../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5'
     addr_coco_cap_train_path='../../Data_Share/Datas/VQA_COCO/annotations/captions_train2014.json'
     addr_coco_cap_val_path = '../../Data_Share/Datas/VQA_COCO/annotations/captions_val2014.json'
+    addr_coco_cap_test_path = '../../Data_Share/Datas/VQA_COCO/annotations/image_info_test2015.json'
+    addr_coco_cap_test_dev_path = '../../Data_Share/Datas/VQA_COCO/annotations/image_info_test-dev2015.json'
     
 elif(platform.system() == 'Windows'):
     addr_BAN = 'D:\\VQA\\BAN'
@@ -19,3 +21,5 @@ elif(platform.system() == 'Windows'):
     addr_hdf5path='../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5'
     addr_coco_cap_train_path='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json'
     addr_coco_cap_val_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_val2014.json'
+    addr_coco_cap_test_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\image_info_test2015.json'
+    addr_coco_cap_test_dev_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\image_info_test-dev2015.json'

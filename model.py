@@ -375,7 +375,7 @@ class BAN_HSC(nn.Module):
 
         return Generated_Explains
 
-    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1):
+    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, useVQA=False):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -383,16 +383,28 @@ class BAN_HSC(nn.Module):
 
 
         if(isBUTD):
-            atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
-                                                         s_method=s_method)
+            if(useVQA):
+                atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
+                                                             s_method=s_method)
+            else:
+                atted_v_feats=v
+                logits=None
+                att=None
+
             encoded_features, union_vfeats, atted_v_feats = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
                                                                         model_num=model_num, isUnion=isUnion)
 
             Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False)
             return Generated_Captions, logits, att, union_vfeats, atted_v_feats # atted_v_feats = Vmat
         else:
-            atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
-                                                         s_method=s_method)
+            if (useVQA):
+                atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
+                                                            s_method=s_method)
+            else:
+                atted_v_feats=v
+                logits=None
+                att=None
+
             encoded_features = self.encoder(atted_v_feats, t_method)
             if(s_method == 'BestOne'):
                 Generated_Captions=self.decoder.sample(encoded_features)

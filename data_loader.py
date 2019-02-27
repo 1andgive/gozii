@@ -75,7 +75,7 @@ class CocoDataset(data.Dataset):
 class BottomUp_CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
 
-    def __init__(self, name, json, vocab, dataroot=addr_dataroot, hdf5path=addr_hdf5path):
+    def __init__(self, name, json_, vocab, dataroot=addr_dataroot, hdf5path=addr_hdf5path):
         """Set the path for images, captions and vocabulary wrapper.
 
         Args:
@@ -85,6 +85,7 @@ class BottomUp_CocoDataset(data.Dataset):
         """
         assert name in ['train', 'val', 'test-dev2015', 'test2015']
         self.adaptive = True
+        self.name=name
 
         #image_id => hdf pre-trained value's index mapping
         self.img_id2idx = cPickle.load(
@@ -112,18 +113,26 @@ class BottomUp_CocoDataset(data.Dataset):
             self.v_dim = self.features_hf.shape[2]
             self.s_dim = self.spatials_hf.shape[2]
 
-
-        self.coco = COCO(json)
-        self.ids = list(self.coco.anns.keys())
+        if (self.name in ['train', 'val']):
+            self.coco = COCO(json_)
+            self.ids = list(self.coco.anns.keys())
+        else:
+            self.coco=json.load(open(json_))
+            self.ids=self.coco['images']
         self.vocab = vocab
 
     def __getitem__(self, index):
         """Returns one data pair (image and caption)."""
         coco = self.coco
         vocab = self.vocab
-        ann_id = self.ids[index]
-        caption = coco.anns[ann_id]['caption']
-        img_id = coco.anns[ann_id]['image_id']
+        target=None
+
+        if(self.name in ['train', 'val']):
+            ann_id = self.ids[index]
+            caption = coco.anns[ann_id]['caption']
+            img_id = coco.anns[ann_id]['image_id']
+        else:
+            img_id = self.ids[index]['id']
         hdf_img_idx=self.img_id2idx[img_id]
         self.features_hf = self.hf.get('image_features')
         self.spatials_hf = self.hf.get('spatial_features')  # bbox
@@ -137,19 +146,23 @@ class BottomUp_CocoDataset(data.Dataset):
                 np.array(self.spatials_hf[self.pos_boxes[hdf_img_idx][0]:self.pos_boxes[hdf_img_idx][1], :]))
 
         # Convert caption (string) to word ids.
-        tokens = nltk.tokenize.word_tokenize(str(caption).lower())
-        caption = []
-        caption.append(vocab('<start>'))
-        caption.extend([vocab(token) for token in tokens])
-        caption.append(vocab('<end>'))
-        target = torch.Tensor(caption)
-        return features,spatials, target
+        if (self.name in ['train', 'val']):
+            tokens = nltk.tokenize.word_tokenize(str(caption).lower())
+            caption = []
+            caption.append(vocab('<start>'))
+            caption.extend([vocab(token) for token in tokens])
+            caption.append(vocab('<end>'))
+            target = torch.Tensor(caption)
+
+            return features,spatials, target
+        else:
+            return features, spatials, img_id
 
     def __len__(self):
         return len(self.ids)
 
 
-def collate_fn(data, use_VQAE=False, use_VQAX=False):
+def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
     """Creates mini-batch tensors from the list of tuples (image, caption).
     
     We should build custom collate_fn rather than using default collate_fn, 
@@ -167,32 +180,35 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False):
     """
     # Sort a data list by caption length (descending order).
 
+    if(isTest):
+        features, spatials, img_ids = zip(*data)
+        captions=[]
+        idcies=range(len(img_ids))
+    else:
+        if (not(use_VQAE) and not(use_VQAX)):
+            data.sort(key=lambda x: len(x[2]), reverse=True)
+            features, spatials, captions = zip(*data)
+        elif(use_VQAE):
+            data.sort(key=lambda x: len(x[4]), reverse=True)
+            features, spatials, questions, answers, captions = zip(*data)
 
-    if (not(use_VQAE) and not(use_VQAX)):
-        data.sort(key=lambda x: len(x[2]), reverse=True)
-        features, spatials, captions = zip(*data)
-    elif(use_VQAE):
-        data.sort(key=lambda x: len(x[4]), reverse=True)
-        features, spatials, questions, answers, captions = zip(*data)
+        # Merge captions (from tuple of 1D tensor to 2D tensor).
+        lengths = [len(cap) for cap in captions]
+        targets = torch.zeros(len(captions), max(lengths)).long()
+        for i, cap in enumerate(captions):
+            end = lengths[i]
+            targets[i, :end] = cap[:end]
 
-
-
+        # lengths for 'pack_padded_sequence' should be sorted!!
+        idcies = np.argsort(lengths)[::-1]  # sorting in descending order
+        new_lengths = [lengths[idx] for idx in idcies]
 
     # Merge images (from tuple of 3D tensor to 4D tensor).
 
 
 
 
-    # Merge captions (from tuple of 1D tensor to 2D tensor).
-    lengths = [len(cap) for cap in captions]
-    targets = torch.zeros(len(captions), max(lengths)).long()
-    for i, cap in enumerate(captions):
-        end = lengths[i]
-        targets[i, :end] = cap[:end]
 
-    # lengths for 'pack_padded_sequence' should be sorted!!
-    idcies=np.argsort(lengths)[::-1] # sorting in descending order
-    new_lengths=[lengths[idx] for idx in idcies]
     if features[0] is not None:
         new_features = [features[idx] for idx in idcies]
         new_features = trim_collate(new_features)
@@ -205,24 +221,28 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False):
     else:
         new_spatials=spatials
 
-    new_targets=[targets[idx] for idx in idcies]
-    new_targets=torch.stack(new_targets)
+    if (isTest):
+        return new_features, new_spatials, img_ids
+    else:
 
-    #pdb.set_trace()
-    if (not (use_VQAE) and not (use_VQAX)):
-        return new_features, new_spatials, new_targets, new_lengths
-    elif(use_VQAE):
-        new_questions=[questions[idx] for idx in idcies]
-        new_answers=[answers[idx] for idx in idcies]
-        new_questions=torch.stack(new_questions)
-        new_answers=torch.stack(new_answers)
-        return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths
+        new_targets=[targets[idx] for idx in idcies]
+        new_targets=torch.stack(new_targets)
 
-def get_loader(root, json, vocab, transform, batch_size, shuffle, num_workers):
+        #pdb.set_trace()
+        if (not (use_VQAE) and not (use_VQAX)):
+            return new_features, new_spatials, new_targets, new_lengths
+        elif(use_VQAE):
+            new_questions=[questions[idx] for idx in idcies]
+            new_answers=[answers[idx] for idx in idcies]
+            new_questions=torch.stack(new_questions)
+            new_answers=torch.stack(new_answers)
+            return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths
+
+def get_loader(root, json_, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
     coco = CocoDataset(root=root,
-                       json=json,
+                       json=json_,
                        vocab=vocab,
                        transform=transform)
 
@@ -254,7 +274,7 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
         coco=ConcatDataset([coco_train,coco_val])
     else:
         coco = BottomUp_CocoDataset(name=name,
-                           json=json,
+                           json_=json,
                            vocab=vocab)
 
 
@@ -264,11 +284,20 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
     # images: a tensor of shape (batch_size, 3, 224, 224).
     # captions: a tensor of shape (batch_size, padded_length).
     # lengths: a list indicating valid length for each caption. length is (batch_size).
-    data_loader = torch.utils.data.DataLoader(dataset=coco,
-                                              batch_size=batch_size,
-                                              shuffle=shuffle,
-                                              num_workers=num_workers,
-                                              collate_fn=collate_fn)
+    if (name in ['train', 'val']):
+        data_loader = torch.utils.data.DataLoader(dataset=coco,
+                                                  batch_size=batch_size,
+                                                  shuffle=shuffle,
+                                                  num_workers=num_workers,
+                                                  collate_fn=collate_fn)
+    else:
+        data_loader = torch.utils.data.DataLoader(dataset=coco,
+                                                  batch_size=batch_size,
+                                                  shuffle=shuffle,
+                                                  num_workers=num_workers,
+                                                  collate_fn= lambda b: collate_fn(b, isTest=True))
+
+
     return data_loader
 
 def trim_collate(batch):
