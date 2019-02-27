@@ -164,7 +164,7 @@ def make_json(captions, ImgIds):
     results = []
     for i in range(len(captions)):
         result = {}
-        result['image_id'] = ImgIds[i].item()
+        result['image_id'] = ImgIds[i]
         result['caption'] = captions[i]
         results.append(result)
     return results
