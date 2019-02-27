@@ -17,6 +17,33 @@ import progressbar
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def caption_refine(explains, NumBeams=1, model_num=1):
+
+
+    cap_list=[]
+    for num_sen in range(NumBeams):
+        if(NumBeams > 1):
+            explain=explains[num_sen]
+            x_caption = ''
+        else:
+            explain=explains
+            x_caption = ''
+        for word_ in explain:
+            if word_ == '<start>':
+                if model_num <7:
+                    x_caption = ''
+            elif word_ == '<end>':
+                break
+            else:
+                x_caption = x_caption + ' ' + word_
+
+        if (NumBeams > 1):
+            cap_list.append([x_caption])
+
+    if (NumBeams > 1):
+        return cap_list
+    else:
+        return x_caption
 
 def main(args):
     if (args.t_method == 'uncorr'):
@@ -107,7 +134,6 @@ def main(args):
             targets = pack_padded_sequence(captions[:, 1:], lengths, batch_first=True)[0]
 
             features = features.cuda()
-            captions = captions.cuda()
             targets = targets.cuda()
 
             # Forward, backward and optimize
@@ -122,10 +148,20 @@ def main(args):
 
             outputs = decoder.BeamSearch(features, union_vfeats, NumBeams=5)
             # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
-            pdb.set_trace()
 
             ##################################################### RL HERE ##############################################
+            caption_list=[]
+            for batch_idx in range(outputs.size(0)):
+                beam_list = []
+                for beam_idx in range(outputs.size(2)):
+                    caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
+                               range(outputs.size(1))]
+                    beam_list.append(caption)
+                beam_list=caption_refine(beam_list,NumBeams=5)
+                caption_list.append(beam_list)
 
+
+            pdb.set_trace()
             # 1. CIDER REWARD
 
 

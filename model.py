@@ -517,7 +517,7 @@ def batchwise_in(batch_elem, batch_list):
 
 def filter_out_duplicate(inputTensor, filter):
     filt_len=len(filter)
-    for i in range(filt_len-2,0,-1):
+    for i in range(filt_len-2,-1,-1):
         for j in range(i,filt_len-1):
             inputTensor[filter[i],j]=inputTensor[filter[i],j+1]
     return inputTensor
@@ -699,22 +699,22 @@ class DecoderTopDown(nn.Module):
         #     Vmat = beta * Vmat
 
         sampled_ids = []
-        input = self.embed(torch.cuda.LongTensor([1])) # [1] = <sos>
+        input = self.embed(torch.cuda.LongTensor(batch_size).fill_(1)) # [1] = <sos>
         for i in range(self.max_seg_length):
             #pdb.set_trace()
             valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input,
                                                                              states1=states1, states2=states2)
 
-            # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+            _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
 
             # prevent duplicate elements in a list
-            _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
-            for j in range(self.max_seg_length):
-                predicted=idx_outs[:,j]
-                if (predicted in sampled_ids):
-                    continue
-                else:
-                    break
+            # _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
+            # for j in range(self.max_seg_length):
+            #     predicted=idx_outs[:,j]
+            #     if (predicted in sampled_ids):
+            #         continue
+            #     else:
+            #         break
 
             sampled_ids.append(predicted)
             input = self.embed(predicted)
@@ -788,6 +788,8 @@ class DecoderTopDown(nn.Module):
         input=input.repeat(batch_size,1)
         input = [input for x in range(NumBeams)]
         hidden2 = [hidden2 for x in range(NumBeams)]
+        states2=[states2 for x in range(NumBeams)]
+        states1 = [states1 for x in range(NumBeams)]
         sample_ids = [[] for x in range(NumBeams)]
         Probs = torch.zeros(batch_size,NumBeams).cuda()
 
@@ -797,16 +799,16 @@ class DecoderTopDown(nn.Module):
         for i in range(self.max_seg_length):
             for beam_idx in range(NumBeams):
 
-                valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input,
-                                                                                 states1=states1, states2=states2)
+                valid_outputs, hidden2[beam_idx], states1[beam_idx], states2[beam_idx] = self.BUTD_LSTM_Module(Vmat, hidden2[beam_idx], union_vfeats, input[beam_idx],
+                                                                                 states1=states1[beam_idx], states2=states2[beam_idx])
                 valid_outputs=self.softmax(valid_outputs)
                 tmp_probs, predicted = max_k_NoDuplicate(valid_outputs, sample_ids[beam_idx], dim_=1, k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
 
                 # if intial step, directly go to next step
                 if( i == 0):
-                    sample_ids=[[predicted[:,idx]] for idx in range(NumBeams)]
-                    input = [self.embed(predicted[:,tmp_idx]) for tmp_idx in range(NumBeams)]  # inputs: (batch_size, embed_size)
-                    Probs = Probs+torch.log(tmp_probs)
+                    sample_ids[beam_idx]=[predicted[:,0]]
+                    input[beam_idx] = self.embed(predicted[:,0])  # inputs: (batch_size, embed_size)
+                    Probs[:,beam_idx] = Probs[:,beam_idx]+torch.log(tmp_probs[:,0])
 
                 # find best-k among k*k candidates
                 else:

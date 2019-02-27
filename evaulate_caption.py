@@ -29,7 +29,6 @@ from address_server_XAI import *
 
 import pdb
 
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -43,7 +42,7 @@ def parse_args():
     parser.add_argument('--op', type=str, default='c')
     parser.add_argument('--label', type=str, default='XAI')
     parser.add_argument('--gamma', type=int, default=2)
-    parser.add_argument('--split', type=str, default='test2015')
+    parser.add_argument('--split', type=str, default='test2014')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
     parser.add_argument('--batch_size', type=int, default=1024)
@@ -69,6 +68,7 @@ def parse_args():
     parser.add_argument('--paramH', type=int, default=256, help='dimension of lstm hidden states')
     parser.add_argument('--result_json_path', type=str, default='test_json/', help='saving path for captioning json')
     parser.add_argument('--test_target', type=str, default='COCO', help='COCO or KARPATHY')
+    parser.add_argument('--method', type=str, default='UNI&BUTD(NO CIDER)', help='applied method')
     args = parser.parse_args()
     return args
 
@@ -147,14 +147,10 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
         img_id_list.extend(img_ids)
 
     bar.update(idx)
-    pdb.set_trace()
     result_json=make_json(captions_list, img_id_list)
 
-
-
-    pdb.set_trace()
-    with open(args.result_json_path + '/test_%s.json' \
-              % (args.test_target), 'w') as f:
+    with open(args.result_json_path + '/captions_%s_%s_results.json' \
+              % (args.split, args.method), 'w') as f:
 
         json.dump(result_json, f)
 
@@ -203,7 +199,7 @@ if __name__ == '__main__':
 
     torch.backends.cudnn.benchmark = True
 
-    name = 'test2015'
+    name = args.split
     Dict_qid2vid=[]
 
     if not os.path.exists(
@@ -224,11 +220,16 @@ if __name__ == '__main__':
 
     # Build data loader
     val_json = json.load(open(addr_coco_cap_val_path))
-    test_json = json.load(open(addr_coco_cap_test_path))
-    test_loader = BottomUp_get_loader('test2015', addr_coco_cap_test_path, vocab,
-                             None, args.batch_size,
-                             shuffle=False, num_workers=0)
-
+    test_json = json.load(open(addr_coco_cap_test2014_path))
+    if (args.split=='test2014'):
+        test_loader = BottomUp_get_loader('test2014', addr_coco_cap_test2014_path, vocab,
+                                 None, args.batch_size,
+                                 shuffle=False, num_workers=0)
+    elif(args.split=='val'):
+        name='val2014'
+        test_loader = BottomUp_get_loader(name, addr_coco_cap_val_path, vocab,
+                                          None, args.batch_size,
+                                          shuffle=False, num_workers=0)
 
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim).to(device)

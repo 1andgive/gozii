@@ -83,10 +83,11 @@ class BottomUp_CocoDataset(data.Dataset):
             json: coco annotation file path.
             vocab: vocabulary wrapper.
         """
-        assert name in ['train', 'val', 'test-dev2015', 'test2015']
+        assert name in ['train', 'val', 'test-dev2015', 'test2015', 'test2014', 'val2014']
         self.adaptive = True
         self.name=name
-
+        if(name=='val2014'):
+            name='val'
         #image_id => hdf pre-trained value's index mapping
         self.img_id2idx = cPickle.load(
             open(os.path.join(dataroot, '%s%s_imgid2idx.pkl' % (name, '' if self.adaptive else '36')), 'rb'))
@@ -262,14 +263,14 @@ def get_loader(root, json_, vocab, transform, batch_size, shuffle, num_workers):
 def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
-    assert name in ['train', 'val', 'test-dev2015', 'test2015',  'train+val']
+    assert name in ['train', 'val', 'test-dev2015', 'test2015',  'train+val', 'test2014', 'val2014']
 
     if name=='train+val':
         coco_train = BottomUp_CocoDataset(name='train',
-                                    json=json[0],
+                                          json_=json[0],
                                     vocab=vocab)
         coco_val = BottomUp_CocoDataset(name='val',
-                                          json=json[1],
+                                        json_=json[1],
                                           vocab=vocab)
         coco=ConcatDataset([coco_train,coco_val])
     else:
@@ -284,7 +285,7 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
     # images: a tensor of shape (batch_size, 3, 224, 224).
     # captions: a tensor of shape (batch_size, padded_length).
     # lengths: a list indicating valid length for each caption. length is (batch_size).
-    if (name in ['train', 'val']):
+    if (name in ['train', 'val', 'train+val']):
         data_loader = torch.utils.data.DataLoader(dataset=coco,
                                                   batch_size=batch_size,
                                                   shuffle=shuffle,
