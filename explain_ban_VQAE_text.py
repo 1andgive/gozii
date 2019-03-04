@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--input', type=str, default='model_XAI/vqaE')
     parser.add_argument('--output', type=str, default='results')
     parser.add_argument('--batch_size', type=int, default=1)
-    parser.add_argument('--max_images', type=int, default=10000) # 실제 원하는 이미지 갯수 x 2 입력
+    parser.add_argument('--max_images', type=int, default=5000) # 실제 원하는 이미지 갯수 입력
     parser.add_argument('--debug', type=bool, default=True)
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
@@ -97,15 +97,11 @@ def showPlot(points):
     plt.plot(points)
 
 def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, save_fig_loc,x_method_, t_method_, s_method_, args_, save_folder):
-    N = args_.max_images
+    N = args_.max_images * len(save_folder)
     M = dataloader.dataset.num_ans_candidates
-    pred = torch.FloatTensor(N, M).zero_()
-    qIds = torch.IntTensor(N).zero_()
+
     idx = 0
     bar = progressbar.ProgressBar(maxval=N).start()
-    #save_folder=['OURS', 'VQAE']
-    # save_folder = ['CAPTION']
-    #save_folder = ['OURS']
 
     csv_file = [os.path.join(save_fig_loc, save_name, 'model{}'.format(args.model_num), t_method_, x_method_,
                             '{}_reasonings.csv'.format(s_method_)) for save_name in save_folder]
@@ -122,9 +118,9 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
 
-                if (save_folder[i_cap] == 'CAPTION'):
+                if (save_folder[i_cap] == 'CAPTION_LRCN'):
                     generated_captions, logits, att, encoded_feats = caption_generator_list[i_cap].generate_caption_n_context(v, b, q,t_method=t_method_, x_method='NoAtt', s_method=s_method_)
-                elif(save_folder[i_cap] == 'VQAE'):
+                elif(save_folder[i_cap] == 'VQAE_LRCN'):
                     generated_captions, logits, att= caption_generator_list[i_cap].generate_caption(v, b, q,t_method=t_method_, x_method='weight_only', s_method='BestOne', model_num=1)
                 else:
                     generated_captions, logits, att, encoded_feats = caption_generator_list[
@@ -153,7 +149,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
 
                     answer_list.append(get_answer(logits.data[idx2], dataloader))
 
-                if(save_folder[i_cap]=='OURS_Feeding'):
+                if(save_folder[i_cap]=='OURS_LRCN_Feeding'):
                     ##################################################################### EXPLAIN ##################################################################################
                     word_candidate_idx_in_coco_vocab = CaptionVocabCandidate(question_list[0], answer_list[0], vocab)
                     generated_captions = caption_generator_list[i_cap].generate_explain(encoded_feats,
@@ -407,15 +403,15 @@ if __name__ == '__main__':
         ################################################################################################################
 
         #Concatenate Encoder-Decoder to model and check whether the model generates correct captions based on visual cues
-        save_folders=['VQAE', 'OURS', 'OURS_Feeding', 'CAPTION']
-        if not os.path.exists(os.path.join(args.save_fig_loc,'VQAE','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # # use ensemble_, vocab_VQAE
-            os.makedirs(os.path.join(args.save_fig_loc,'VQAE','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
-        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == weight_only
-            os.makedirs(os.path.join(args.save_fig_loc,'OURS','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
-        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS_Feeding','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == weight_only
-            os.makedirs(os.path.join(args.save_fig_loc,'OURS_Feeding','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
-        if not os.path.exists(os.path.join(args.save_fig_loc,'CAPTION','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == NoAtt
-            os.makedirs(os.path.join(args.save_fig_loc,'CAPTION','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
+        save_folders=['VQAE_LRCN', 'OURS_LRCN', 'OURS_LRCN_Feeding', 'CAPTION_LRCN']
+        if not os.path.exists(os.path.join(args.save_fig_loc,'VQAE_LRCN','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # # use ensemble_, vocab_VQAE
+            os.makedirs(os.path.join(args.save_fig_loc,'VQAE_LRCN','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
+        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS_LRCN','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == weight_only
+            os.makedirs(os.path.join(args.save_fig_loc,'OURS_LRCN','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
+        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS_LRCN_Feeding','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == weight_only
+            os.makedirs(os.path.join(args.save_fig_loc,'OURS_LRCN_Feeding','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
+        if not os.path.exists(os.path.join(args.save_fig_loc,'CAPTION_LRCN','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method)): # x_method == NoAtt
+            os.makedirs(os.path.join(args.save_fig_loc,'CAPTION_LRCN','model{}'.format(args.model_num),args.t_method,args.x_method,args.s_method))
         #check_captions([caption_generator, ensemble_], eval_loader, Dict_qid2vid, [vocab, vocab_VQAE],
          #              args.save_fig_loc, args.x_method, args.t_method, args.s_method, args)
         check_captions([ensemble_, caption_generator, caption_generator, caption_generator], eval_loader, Dict_qid2vid, [vocab_VQAE, vocab, vocab, vocab],

@@ -12,7 +12,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 
 from build_vocab import Vocabulary
-from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC
+from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC, DecoderTopDown
 from model_VQAE import EnsembleVQAE
 import utils_hsc as utils_save
 
@@ -42,6 +42,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
+    parser.add_argument('--paramH', type=int, default=256, help='dimension of lstm hidden states')
     parser.add_argument('--hidden_size_BAN', type=int, default=1280, help='dimension of GRU hidden states in BAN')
     parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
     parser.add_argument('--num_epoch',type=int,default=50)
@@ -61,6 +62,7 @@ def parse_args():
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--model_num_CE', type=int, default=1, help='model number of caption encoder')
     parser.add_argument('--checkpoint_dir', type=str, default='None', help='loading from this checkpoint')
+    parser.add_argument('--isBUTD', type=bool, default=False)
     args = parser.parse_args()
     return args
 
@@ -99,7 +101,14 @@ if __name__ == '__main__':
 
 
     vqaE_loader = VQAE_FineTunning_loader('train+val', dictionary_vqa, vocab_VQAE, args.batch_size, shuffle=True, num_workers=0)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab_VQAE), args.num_layers).to(device)
+    if(args.isBUTD):
+        decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab_VQAE),
+                                 args.num_layers,
+                                 paramH=args.paramH)
+        vqaE_path = 'vqaE_BUTD'
+    else:
+        decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab_VQAE), args.num_layers).to(device)
+        vqaE_path = 'vqaE'
 
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(vqaE_loader.dataset.datasets[0], args.num_hid, args.op, args.gamma).cuda()
@@ -118,10 +127,12 @@ if __name__ == '__main__':
     params=ban_vqaE.parameters()
     optimizer = torch.optim.Adamax(params, lr=args.learning_rate)
 
-    if not os.path.exists(os.path.join('model_xai', 'vqaE')):
-        os.makedirs(os.path.join('model_xai', 'vqaE'))
 
-    save_path = os.path.join('model_xai', 'vqaE')
+
+    if not os.path.exists(os.path.join('model_xai', vqaE_path)):
+        os.makedirs(os.path.join('model_xai', vqaE_path))
+
+    save_path = os.path.join('model_xai', vqaE_path)
 
 
     criterion_Explain = nn.CrossEntropyLoss()
@@ -135,7 +146,7 @@ if __name__ == '__main__':
 
     if (args.checkpoint_dir != 'None'):
         model_vqaE_path = os.path.join(
-            'model_xai', 'vqaE',
+            'model_xai', vqaE_path,
             args.checkpoint_dir)
         model_vqaE_data = torch.load(model_vqaE_path)
         ban_vqaE.load_state_dict(model_vqaE_data['model_state'])
@@ -152,9 +163,8 @@ if __name__ == '__main__':
 
             ban_vqaE.zero_grad()
 
-            preds, att, outputs = ban_vqaE(v, b, q, ans, captions, lengths)
+            preds, att, outputs = ban_vqaE(v, b, q, ans, captions, lengths, isBUTD=args.isBUTD)
             #outs=caption_encoder.forward_DoubleLSTM_out(hiddens)
-
             Loss = criterion_Explain(outputs, targets) + instance_bce_with_logits(preds, ans)
             Loss.backward()
             optimizer.step()
@@ -165,7 +175,7 @@ if __name__ == '__main__':
 
         # Save the model checkpoints
         save_path = os.path.join(
-            'model_xai', 'vqaE', 'vqaE-{}-Final.pth'.format(epoch + 1))
+            'model_xai', vqaE_path, 'vqaE-{}-Final.pth'.format(epoch + 1))
         ####################################################################################################
         # implement utils.save_xai_model
 

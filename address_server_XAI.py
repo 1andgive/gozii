@@ -15,6 +15,7 @@ if(platform.system() == 'Linux'):
     addr_coco_cap_test_path = '../../Data_Share/Datas/VQA_COCO/annotations/image_info_test2015.json'
     addr_coco_cap_test_dev_path = '../../Data_Share/Datas/VQA_COCO/annotations/image_info_test-dev2015.json'
     addr_coco_cap_test2014_path = '../../Data_Share/Datas/VQA_COCO/annotations/image_info_test2014.json'
+    addr_cider_score_path = '../../XAI/coco_caption_jiasen3'
     
 elif(platform.system() == 'Windows'):
     addr_BAN = 'D:\\VQA\\BAN'
@@ -25,3 +26,4 @@ elif(platform.system() == 'Windows'):
     addr_coco_cap_test_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\image_info_test2015.json'
     addr_coco_cap_test_dev_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\image_info_test-dev2015.json'
     addr_coco_cap_test2014_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\image_info_test2014.json'
+    addr_cider_score_path='D:\\XAI\\coco_caption_jiasen3'

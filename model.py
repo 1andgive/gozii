@@ -656,7 +656,6 @@ class DecoderTopDown(nn.Module):
         else:
             outputs=[]
             for i in range(max_seq_length):
-
                 input1 = torch.cat([hidden2, union_vfeats,
                                     embeddings[:, i, :]], 1)
                 input1 = input1.unsqueeze(1)
@@ -666,7 +665,7 @@ class DecoderTopDown(nn.Module):
                 atten_logit = self.linear_wa(
                     self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
                 atten_logit = atten_logit.squeeze(2)
-                atten = self.softmax(atten_logit)
+                atten = self.softmax(   atten_logit)
                 atten = atten.unsqueeze(1)
                 atten_vfeats = torch.matmul(atten, Vmat)
                 input2 = torch.cat([atten_vfeats, hidden1], 2)
@@ -705,16 +704,12 @@ class DecoderTopDown(nn.Module):
             valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input,
                                                                              states1=states1, states2=states2)
 
-            _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+            # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
 
-            # prevent duplicate elements in a list
-            # _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
-            # for j in range(self.max_seg_length):
-            #     predicted=idx_outs[:,j]
-            #     if (predicted in sampled_ids):
-            #         continue
-            #     else:
-            #         break
+            #prevent duplicate elements in a list
+            _, idx_outs = max_k_NoDuplicate(valid_outputs, sampled_ids, dim_=1,
+                                                     k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+            predicted=idx_outs[:,0]
 
             sampled_ids.append(predicted)
             input = self.embed(predicted)

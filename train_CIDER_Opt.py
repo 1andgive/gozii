@@ -13,9 +13,16 @@ import pdb
 import utils_hsc as utils
 from address_server_XAI import *
 import progressbar
+from pycocotools.coco import COCO
+from tokenizer.ptbtokenizer import PTBTokenizer
+import sys
+
+
+from cider.cider import CiderScorer
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 def caption_refine(explains, NumBeams=1, model_num=1):
 
@@ -67,7 +74,24 @@ def main(args):
     # Build data loader
     coco_cap_train_path = addr_coco_cap_train_path
     coco_cap_val_path = addr_coco_cap_val_path
-    data_loader = BottomUp_get_loader('train+val', [coco_cap_train_path, coco_cap_val_path], vocab,
+    coco_Train=COCO(coco_cap_train_path)
+    coco_Val = COCO(coco_cap_val_path)
+    train_Ids= coco_Train.getImgIds()
+    val_Ids = coco_Val.getImgIds()
+    coco_Train_gts={}
+    coco_Val_gts={}
+
+    for imgId in train_Ids:
+        coco_Train_gts[imgId] = coco_Train.imgToAnns[imgId]
+    for imgId in val_Ids:
+        coco_Val_gts[imgId] = coco_Val.imgToAnns[imgId]
+    overall_gts = {}
+    overall_gts.update(coco_Train_gts)
+    overall_gts.update(coco_Val_gts)
+    tokenizer = PTBTokenizer()
+    overall_gts = tokenizer.tokenize(overall_gts)
+
+    data_loader = BottomUp_get_loader('train+valCider', [coco_cap_train_path, coco_cap_val_path], vocab,
                                       transform, args.batch_size,
                                       shuffle=True, num_workers=args.num_workers)
 
@@ -118,23 +142,15 @@ def main(args):
     N = args.num_epochs * len(data_loader)
     bar = progressbar.ProgressBar(maxval=N).start()
     i_train = 0
+    cider_scorer=CiderScorer(n=4,sigma=6.0)
+
     for epoch in range(epoch_start, args.num_epochs):
         # for i, (images, captions, lengths) in enumerate(data_loader):
 
-        for i, (features, spatials, captions, lengths) in enumerate(data_loader):
+        for i, (features, spatials, img_Ids) in enumerate(data_loader):
             bar.update(i_train)
-            # Set mini-batch dataset
-            # if(args.model_num > 6):
-            #     lengths[:]=[x-1 for x in lengths] #어차피 <sos> 나 <eos> 둘중 하나는 양쪽 (target, input)에서 제거된다.
-            #     targets = pack_padded_sequence(captions[:, 1:], lengths, batch_first=True)[0]
-            # else:
-            #     targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
-
-            lengths[:] = [x - 1 for x in lengths]  # 어차피 <sos> 나 <eos> 둘중 하나는 양쪽 (target, input)에서 제거된다.
-            targets = pack_padded_sequence(captions[:, 1:], lengths, batch_first=True)[0]
 
             features = features.cuda()
-            targets = targets.cuda()
 
             # Forward, backward and optimize
             if (torch.cuda.device_count() > 1):
@@ -160,9 +176,17 @@ def main(args):
                 beam_list=caption_refine(beam_list,NumBeams=5)
                 caption_list.append(beam_list)
 
-
-            pdb.set_trace()
             # 1. CIDER REWARD
+            cider_tensor= torch.cuda.FloatTensor(outputs.size(0), outputs.size(2)).fill_(0)
+            for batch_idx in range(outputs.size(0)):
+
+                ref=overall_gts[img_Ids[batch_idx]]
+
+                for beam_idx in range(outputs.size(2)):
+                    hypo = caption_list[batch_idx][beam_idx]
+                    cider_scorer += (hypo[0], ref)
+            (score, scores) = cider_scorer.compute_score('corpus')
+            pdb.set_trace()
 
 
 
@@ -173,7 +197,6 @@ def main(args):
             ##################################################### RL HERE ##############################################
 
 
-            outputs = pack_padded_sequence(outputs, lengths, batch_first=True)[0]
             loss = criterion(outputs, targets)
 
             decoder.zero_grad()

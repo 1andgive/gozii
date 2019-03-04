@@ -17,7 +17,7 @@ class EnsembleVQAE(nn.Module):
         self.linearWq = nn.Linear(qdim, embed_size)
         self.linearWv = nn.Linear(vdim, embed_size)
 
-    def forward(self, v, b, q, ans, captions, lengths):
+    def forward(self, v, b, q, ans, captions, lengths, isBUTD=False):
 
         q=q.squeeze(1)
         logits, att = self.BAN(v, b, q, None)
@@ -30,16 +30,22 @@ class EnsembleVQAE(nn.Module):
         # att_for_v dimension => [b, v_feature_dim, 1]
 
         atted_v_feats = att_for_v * v  # attended visual features
-        atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        atted_v_feats_sum = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        atted_v_feats_mean = torch.mean(atted_v_feats, 1).unsqueeze(1)
 
         q_emb = self.BAN.module.extractQEmb(q)
         q_emb = q_emb[:, -1, :]
         q_emb = q_emb.unsqueeze(1)
 
-        context_vec=self.act_relu(self.linearWq(q_emb)) * self.act_relu(self.linearWv(atted_v_feats))
-        outputs_caption=self.decoder(context_vec.squeeze(1), captions, lengths)
+        if(isBUTD):
+            outputs_caption=self.decoder(atted_v_feats, None, atted_v_feats_mean.squeeze(1), captions, lengths)
+            outputs_caption = pack_padded_sequence(outputs_caption, lengths, batch_first=True)[0]
+            return logits, att, outputs_caption
+        else:
+            context_vec=self.act_relu(self.linearWq(q_emb)) * self.act_relu(self.linearWv(atted_v_feats_sum))
+            outputs_caption=self.decoder(context_vec.squeeze(1), captions, lengths)
 
-        return logits, att, outputs_caption
+            return logits, att, outputs_caption
 
     def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
 
