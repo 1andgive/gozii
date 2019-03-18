@@ -47,7 +47,7 @@ class EnsembleVQAE(nn.Module):
 
             return logits, att, outputs_caption
 
-    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
+    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1, isBUTD=False):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -63,21 +63,26 @@ class EnsembleVQAE(nn.Module):
         # att_for_v dimension => [b, v_feature_dim, 1]
 
         atted_v_feats = att_for_v * v  # attended visual features
-        atted_v_feats = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        atted_v_feats_sum = torch.sum(atted_v_feats, 1).unsqueeze(1)
+        atted_v_feats_mean= torch.mean(atted_v_feats,1)
 
         q_emb = self.BAN.module.extractQEmb(q)
         q_emb = q_emb[:, -1, :]
         q_emb = q_emb.unsqueeze(1)
 
-        encoded_features = self.act_relu(self.linearWq(q_emb)) * self.act_relu(self.linearWv(atted_v_feats))
-        encoded_features=encoded_features.squeeze(1)
+        if(isBUTD):
+            Generated_Captions=self.decoder.sample(atted_v_feats, atted_v_feats_mean)
+            return Generated_Captions, logits, att
+        else:
+            encoded_features = self.act_relu(self.linearWq(q_emb)) * self.act_relu(self.linearWv(atted_v_feats_sum))
+            encoded_features=encoded_features.squeeze(1)
 
-        if(s_method == 'BestOne'):
-            if (model_num < 7):
-                Generated_Captions=self.decoder.sample(encoded_features)
-            else:
-                Generated_Captions = self.decoder.sample2(encoded_features)
-        elif(s_method == 'BeamSearch'):
-            Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
+            if(s_method == 'BestOne'):
+                if (model_num < 7):
+                    Generated_Captions=self.decoder.sample(encoded_features)
+                else:
+                    Generated_Captions = self.decoder.sample2(encoded_features)
+            elif(s_method == 'BeamSearch'):
+                Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 
-        return Generated_Captions, logits, att
+            return Generated_Captions, logits, att

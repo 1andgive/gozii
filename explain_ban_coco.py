@@ -119,7 +119,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
 
             #print(args.isUnion)
             generated_captions, logits, att, encoded_feats, Vmat = caption_generator.generate_caption_n_context(v, b, q,t_method=t_method_, x_method=args.x_method, s_method=s_method_,
-                                                                                                                isBUTD=args.isBUTD , isUnion=args.isUnion)
+                                                                                                                isBUTD=args.isBUTD , isUnion=args.isUnion,useVQA=True)
 
             idx += batch_size
             img_list=[]

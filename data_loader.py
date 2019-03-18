@@ -183,8 +183,7 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
         lengths: list; valid length for each padded caption.
     """
     # Sort a data list by caption length (descending order).
-
-    if(isTest):
+    if(isTest and not(use_VQAE)):
         features, spatials, img_ids = zip(*data)
         captions=[]
         idcies=range(len(img_ids))
@@ -194,7 +193,10 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
             features, spatials, captions = zip(*data)
         elif(use_VQAE):
             data.sort(key=lambda x: len(x[4]), reverse=True)
-            features, spatials, questions, answers, captions = zip(*data)
+            if(isTest):
+                features, spatials, questions, answers, captions, img_ids = zip(*data)
+            else:
+                features, spatials, questions, answers, captions = zip(*data)
 
         # Merge captions (from tuple of 1D tensor to 2D tensor).
         lengths = [len(cap) for cap in captions]
@@ -225,7 +227,7 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
     else:
         new_spatials=spatials
 
-    if (isTest):
+    if (isTest and not(use_VQAE)):
         return new_features, new_spatials, img_ids
     else:
 
@@ -240,7 +242,11 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
             new_answers=[answers[idx] for idx in idcies]
             new_questions=torch.stack(new_questions)
             new_answers=torch.stack(new_answers)
-            return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths
+            if(isTest):
+                new_img_ids=[img_ids[idx] for idx in idcies]
+                return new_features, new_spatials, new_questions, new_answers, new_img_ids, new_lengths
+            else:
+                return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths
 
 def get_loader(root, json_, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
@@ -388,7 +394,10 @@ class VQA_E_finetuning_Dataset(VQAFeatureDataset):
     def __init__(self,name,vqaDict, captionVcoab, dataroot='codes\\tools\\data', hdf5path='D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\hdf5',
                  adaptive=True, vqa_E_train_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json',
                  vqa_E_val_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json'):
-        assert name in ['train', 'val']
+        assert name in ['train', 'val', 'eval']
+        self.name = name
+        if(name=='eval'):
+            name = 'val'
         super(VQA_E_finetuning_Dataset,self).__init__(name,vqaDict,dataroot,hdf5path,adaptive)
         if (name == 'train'):
             self.VQA_E=json.load(open(vqa_E_train_path))
@@ -398,8 +407,12 @@ class VQA_E_finetuning_Dataset(VQAFeatureDataset):
         self.vqaDict=vqaDict
         self.capVoc=captionVcoab
 
+
+
     def __getitem__(self, index):
         answer = self.VQA_E[index]['multiple_choice_answer']
+
+        img_id = self.VQA_E[index]['img_id']
         if answer in self.ans2label.keys():
             answer = self.ans2label[answer]
         else:
@@ -445,24 +458,35 @@ class VQA_E_finetuning_Dataset(VQAFeatureDataset):
         target = torch.zeros(self.num_ans_candidates)
         if answer is not None:
             target.scatter_(0, torch.LongTensor([answer]), 1)
-
-        return features, spatials, Wq_, target.cuda(), Wc_  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+        if (self.name =='eval'):
+            return features, spatials, Wq_, target.cuda(), Wc_, img_id  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+        else:
+            return features, spatials, Wq_, target.cuda(), Wc_  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
 
     def __len__(self):
         return len(self.VQA_E)
 
 
 def VQAE_FineTunning_loader(name, dictionary_vqa, vocab_VQAE, batch_size, shuffle, num_workers):
-    assert name in ['train', 'val', 'train+val']
+    assert name in ['train', 'val', 'train+val', 'eval']
 
     if (name == 'train'):
         vqaE_dset = VQA_E_finetuning_Dataset('train', dictionary_vqa, vocab_VQAE)
     elif (name == 'val'):
         vqaE_dset = VQA_E_finetuning_Dataset('val', dictionary_vqa, vocab_VQAE)
+    elif (name == 'eval'):
+        vqaE_dset = VQA_E_finetuning_Dataset('eval', dictionary_vqa, vocab_VQAE)
     elif (name == 'train+val'):
         vqaE_dset = ConcatDataset([VQA_E_finetuning_Dataset('train', dictionary_vqa, vocab_VQAE), VQA_E_finetuning_Dataset('val', dictionary_vqa, vocab_VQAE)])
 
-    data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
+    if(name == 'eval'):
+        data_loader = torch.utils.data.DataLoader(dataset=vqaE_dset, batch_size=batch_size, shuffle=shuffle,
+                                                  num_workers=num_workers,
+                                                  collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False, isTest=True))
+    else:
+        data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
+
+
     return data_loader
 
 

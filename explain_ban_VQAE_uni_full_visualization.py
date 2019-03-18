@@ -120,6 +120,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 v = Variable(v).cuda()
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
+                isNoAtt_=False
 
                 if (save_folder[i_cap] == 'CAPTION_LRCN'):
                     generated_captions, logits, att, encoded_feats,_ = caption_generator_list[i_cap].generate_caption_n_context(v, b, q,t_method='mean', x_method='NoAtt', s_method=s_method_, useVQA=True)
@@ -135,9 +136,15 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                                                                                                      s_method='BestOne',
                                                                                                      model_num=1, isBUTD=True)
                 elif(save_folder[i_cap]=='OURS_LRCN' or save_folder[i_cap]=='OURS_LRCN_Feeding'):
-                    generated_captions, logits, att, encoded_feats, _ = caption_generator_list[
+                    generated_captions, logits, att, encoded_feats, _, unifications = caption_generator_list[
                         i_cap].generate_caption_n_context(v, b, q, t_method='uncorr', x_method='weight_only',
-                                                          s_method=s_method_, useVQA=True)
+                                                          s_method=s_method_, useVQA=True, checkBeta=True)
+
+                elif (save_folder[i_cap] == 'OURS_LRCN_NOATT'):
+                    generated_captions, logits, att, encoded_feats, _, unifications = caption_generator_list[
+                        i_cap].generate_caption_n_context(v, b, q, t_method='uncorr', x_method='NoAtt',
+                                                          s_method=s_method_, useVQA=True, checkBeta=True)
+                    isNoAtt_=True
                 else:
                     generated_captions, logits, att, encoded_feats, Vmat = caption_generator_list[
                         i_cap].generate_caption_n_context(
@@ -195,30 +202,16 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
 
                     ##################################################################### EXPLAIN ##################################################################################
 
-            caption_=captions_list[0]
-
-            x_caption = ''
-
-            for word_ in caption_:
-                if word_ == '<start>':
-                    x_caption = ''
-                elif word_ == '<end>':
-                    break
-                else:
-                    x_caption = x_caption + ' ' + word_
-
-            row=[i.item(), answer_list[0], x_caption]
-
-            with open(csv_file[i_cap], 'a') as csvFile:
-                writer=csv.writer(csvFile)
-                writer.writerow(row)
-
-            csvFile.close()
-
-            img_ = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], b[0, :, :4],
-                                          captions_list[0], None, display=False)
+            img_ = showAttention(question_list[0], img_list[0], answer_list[0], att[0, :, :, :], unifications,
+                        b[0, :, :4],
+                        captions_list[0], None, display=False, isNoAtt=isNoAtt_)
             plt.imsave(
-                os.path.join(save_fig_loc, save_folder[i_cap], 'model{}'.format(args.model_num), 'imgs', '{}_image.png'.format(i.item())), img_)
+                os.path.join(save_fig_loc, save_folder[i_cap], 'model{}'.format(args.model_num), 'imgs',
+                             '{}_uni_vis.png'.format(i.item())), img_)
+
+
+
+
 
 
     bar.update(idx)
@@ -236,9 +229,7 @@ def make_json(logits, qIds, dataloader):
 
 #######################################################################################
 
-def showAttention(input_question, image, output_answer, attentions,bbox, explains, RelScore, display=True, NumBeams=1):
-
-
+def showAttention(input_question, image, output_answer,attentions, unification,bbox, explains, RelScore, display=True, NumBeams=1, isNoAtt=False):
 
     x_caption = ''
     for num_sen in range(NumBeams):
@@ -257,14 +248,20 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
         if (NumBeams > 1):
             x_caption=x_caption+'\n'
     Explain = 'Explain : {}'.format(x_caption)
-    attentions=attentions.cpu()
+    unification=unification.cpu()
 
+    unification=unification.squeeze()
 
+    _, idx_uni = torch.sort(unification, descending=True)
+
+    idx_uni = idx_uni[:3]
+
+    attentions = attentions.cpu()
 
     att2 = attentions[1, :, :]
-    att2=torch.t(att2)
+    att2 = torch.t(att2)
 
-    #pdb.set_trace()
+    # pdb.set_trace()
 
     att2_sum = torch.sum(att2, 0)
 
@@ -272,16 +269,21 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
 
     idx_att2 = idx_att2[:3]
 
-
     im_height = image.shape[0]
     im_width = image.shape[1]
     lis = range(attentions.size(1))
 
+    bbox_uni = bbox[idx_uni, :]
 
 
-
-    mask_=np.zeros(image.shape[0:2])
+    mask_1=np.zeros(image.shape[0:2])
+    mask_2 = np.zeros(image.shape[0:2])
     num_objects=att2_sum.size(0)
+
+    factor_1=1/num_objects
+    factor_2=unification/num_objects
+
+
     int_pt=torch.IntTensor(4)
     for i in range(num_objects):
         pt=bbox[i,:].clone()
@@ -291,24 +293,42 @@ def showAttention(input_question, image, output_answer, attentions,bbox, explain
         pt[3] = pt[3] * im_height
         for ii in range(4):
             int_pt[ii]=round(pt[ii].item())
-        mask_[int_pt[1]:int_pt[3],int_pt[0]:int_pt[2]] += att2_sum[i]
+        mask_1[int_pt[1]:int_pt[3],int_pt[0]:int_pt[2]] += factor_1
+        mask_2[int_pt[1]:int_pt[3], int_pt[0]:int_pt[2]] += factor_2[i]
 
-    img_total = np.zeros([im_height, 2 * im_width, image.shape[2]])
+    img_total = np.zeros([im_height, 3 * im_width, image.shape[2]])
     img_total=img_total.astype(int)
     img_total[:, :im_width, :] =image.copy()
 
-    image=image.copy()
-    img_r=np.multiply(image[:,:,0],mask_)
-    img_g = np.multiply(image[:, :, 1], mask_)
-    img_b = np.multiply(image[:, :, 2], mask_)
-    image[:,:,0]=np.round_(img_r)
-    image[:, :, 1] = np.round_(img_g)
-    image[:, :, 2] = np.round_(img_b)
-    image=image.astype(int)
-    img_total[:, im_width:, :]=image
+    visualization_param=2
 
+    image1=image.copy()
+    #image1=np.zeros([im_height, im_width, image.shape[2]])
+    img_r1 = np.add(image1[:, :, 0], visualization_param * 255 * (-mask_1 + factor_1))
+    img_r1 = np.clip(img_r1, 0, 255)
+    image1[:, :, 1] = np.round_(img_r1)
+    img_g1 = np.add(image1[:, :, 1], visualization_param*255*(mask_1-factor_1))
+    img_g1 = np.clip(img_g1, 0, 255)
+    image1[:, :, 1] = np.round_(img_g1)
+    img_b1 = np.add(image1[:, :, 2], visualization_param*255 * (mask_1-factor_1))
+    img_b1 = np.clip(img_b1, 0, 255)
+    image1[:, :, 2] = np.round_(img_b1)
+    image1 = image1.astype(int)
+    img_total[:, im_width:2*im_width, :] = image1
 
-
+    image2 = image.copy()
+    #image2 = np.zeros([im_height, im_width, image.shape[2]])
+    img_r2 = np.add(image2[:, :, 0], visualization_param * 255 * (-mask_2 + factor_1))
+    img_r2 = np.clip(img_r2, 0, 255)
+    image2[:, :, 1] = np.round_(img_r2)
+    img_g2 = np.add(image2[:, :, 1], visualization_param*255*(mask_2-factor_1))
+    img_g2=np.clip(img_g2,0,255)
+    image2[:, :, 1] = np.round_(img_g2)
+    img_b2 = np.add(image2[:, :, 2], visualization_param*255 * (mask_2-factor_1))
+    img_b2 = np.clip(img_b2, 0, 255)
+    image2[:, :, 2] = np.round_(img_b2)
+    image2 = image2.astype(int)
+    img_total[:, 2*im_width:, :] = image2
 
 
     if display:
@@ -455,8 +475,7 @@ if __name__ == '__main__':
 
         #Concatenate Encoder-Decoder to model and check whether the model generates correct captions based on visual cues
         #save_folders=['VQAE_LRCN', 'OURS_LRCN', 'OURS_LRCN_Feeding', 'CAPTION_LRCN', 'VQAE_BUTD', 'OURS_BUTD', 'OURS_BUTD_Feeding', 'CAPTION_BUTD']
-        save_folders = ['OURS_LRCN', 'OURS_LRCN_Feeding', 'VQAE_BUTD',
-                        'CAPTION_BUTD']
+        save_folders = ['OURS_LRCN','OURS_LRCN_NOATT']
         if not os.path.exists(os.path.join(args.save_fig_loc,'VQAE_LRCN','model{}'.format(args.model_num),'imgs')): # # use ensemble_, vocab_VQAE
             os.makedirs(os.path.join(args.save_fig_loc,'VQAE_LRCN','model{}'.format(args.model_num),'imgs'))
         if not os.path.exists(os.path.join(args.save_fig_loc,'OURS_LRCN','model{}'.format(args.model_num),'imgs')): # x_method == weight_only
@@ -473,6 +492,8 @@ if __name__ == '__main__':
             os.makedirs(os.path.join(args.save_fig_loc,'OURS_BUTD_Feeding','model{}'.format(args.model_num),'imgs'))
         if not os.path.exists(os.path.join(args.save_fig_loc,'CAPTION_BUTD','model{}'.format(args.model_num),'imgs')): # x_method == NoAtt
             os.makedirs(os.path.join(args.save_fig_loc,'CAPTION_BUTD','model{}'.format(args.model_num),'imgs'))
+        if not os.path.exists(os.path.join(args.save_fig_loc,'OURS_LRCN_NOATT','model{}'.format(args.model_num),'imgs')): # x_method == NoAtt
+            os.makedirs(os.path.join(args.save_fig_loc,'OURS_LRCN_NOATT','model{}'.format(args.model_num),'imgs'))
         #check_captions([caption_generator, ensemble_], eval_loader, Dict_qid2vid, [vocab, vocab_VQAE],
          #              args.save_fig_loc, args.x_method, args.t_method, args.s_method, args)
         # check_captions([ensemble_LRCN, caption_generator_LRCN_uni, caption_generator_LRCN_uni, caption_generator_LRCN_mean, ensemble_BUTD, caption_generator_BUTD_uni, caption_generator_BUTD_uni, caption_generator_BUTD_mean],
@@ -480,10 +501,9 @@ if __name__ == '__main__':
         #                [vocab_VQAE, vocab, vocab, vocab, vocab_VQAE, vocab, vocab, vocab],
         #                args.save_fig_loc, args.x_method, args.t_method, args.s_method, args, save_folders)
         check_captions(
-            [caption_generator_LRCN_uni, caption_generator_LRCN_uni,
-             ensemble_BUTD, caption_generator_BUTD_mean],
+            [caption_generator_LRCN_uni,caption_generator_LRCN_uni],
             eval_loader, Dict_qid2vid,
-            [vocab, vocab, vocab_VQAE, vocab],
+            [vocab,vocab],
             args.save_fig_loc, args.x_method, args.t_method, args.s_method, args, save_folders)
         ################################################################################################################
 

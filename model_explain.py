@@ -85,12 +85,12 @@ def Relev_Check_by_IDX(CaptionIDX,QuestionIDX,AnswerIDX,W_Emb,Dict_AC_2_Q):
             Question=QuestionIDX[idx]
 
             x_caption = []
-            if Caption[0] == 1:
-                for idx3 in Caption[1:]:
-                    if idx3 != 2:
-                        x_caption.append(idx3)
-                    else:
-                        break
+            
+            for idx3 in Caption[1:]:
+                if idx3 != 2:
+                    x_caption.append(idx3)
+                else:
+                    break
 
             Wc_inQ_idx = []
             for Wc_IDX in x_caption:

@@ -45,7 +45,7 @@ class Encoder_HieStackedCorr(nn.Module):
         self.act_relu=nn.ReLU()
         self.act_tanh=nn.Tanh()
         self.act_Lrelu = nn.LeakyReLU()
-    def forward_BUTD(self, Vmat, t_method='mean', model_num=1,isUnion=False):
+    def forward_BUTD(self, Vmat, t_method='mean', model_num=1,isUnion=False, checkBeta=False):
         assert t_method in ['mean', 'uncorr']
         if(model_num > 6):
             model_num=1
@@ -98,16 +98,22 @@ class Encoder_HieStackedCorr(nn.Module):
             betas=torch.mean(UMat,1)
             betas=betas.unsqueeze(2)
             Vmat=betas*Vmat
-            
-            return enc_features, unified_features, Vmat
+            if(checkBeta):
+                return enc_features, unified_features, Vmat, betas
+            else:
+                return enc_features, unified_features, Vmat
         elif (t_method == 'mean'):
             enc_features=self.bn(self.linear(features))
             unified_features=features
-            return enc_features, unified_features, Vmat
+            return enc_features, unified_features, Vmat, None
 
-    def forward(self, Vmat, t_method='mean', model_num=1):
-        enc_features,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num)
-        return enc_features
+    def forward(self, Vmat, t_method='mean', model_num=1,checkBeta_=False):
+        if(checkBeta_):
+            enc_features, _, _, betas = self.forward_BUTD(Vmat, t_method=t_method, model_num=model_num, checkBeta=checkBeta_)
+            return enc_features, betas
+        else:
+            enc_features,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num, checkBeta=checkBeta_)
+            return enc_features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
         ##building Un-Correlated Residual Hierarchy for Visual Matrix
@@ -208,24 +214,27 @@ class DecoderRNN(nn.Module):
         return outputs
 
     
-    def sample(self, features, states=None):
+    def sample(self, features, states=None, model_num=1):
         """Generate captions for given image features using greedy search."""
-
-        sampled_ids = []
-        inputs = features.unsqueeze(1)
-        for i in range(self.max_seg_length):
-            hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
-            outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
-            _, predicted = outputs.max(1)                        # predicted: (batch_size)
-            sampled_ids.append(predicted)
-            inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
-            inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
-        sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
-        return sampled_ids
+        if(model_num < 7):
+            sampled_ids = []
+            inputs = features.unsqueeze(1)
+            for i in range(self.max_seg_length):
+                hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
+                outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
+                _, predicted = outputs.max(1)                        # predicted: (batch_size)
+                sampled_ids.append(predicted)
+                inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
+                inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
+            sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
+            return sampled_ids
+        else:
+            return self.sample2(features)
 
     def sample2(self, features, input=1):
         """Generate captions for given image features using greedy search."""
         sampled_ids = []
+        pdb.set_trace()
         features = features.unsqueeze(0)
         init_memory = torch.cuda.FloatTensor(features.size()).fill_(0)
         states=[features, init_memory]
@@ -258,9 +267,14 @@ class DecoderRNN(nn.Module):
             #     predicted=torch.cuda.LongTensor([answer_word]) # '<start>'
             #     vocab_candidates.remove(answer_word)
             elif (i == 1):
-                outputs_candidate=outputs[0,vocab_candidates]
-                _, output_best=outputs_candidate.max(0)
-                predicted=vocab_candidates[output_best]
+                if(vocab_candidates):
+                    outputs_candidate=outputs[0,vocab_candidates]
+                    _, output_best = outputs_candidate.max(0)
+                    predicted = vocab_candidates[output_best]
+                else:
+                    outputs_candidate = outputs[0]
+                    _,predicted=outputs_candidate.max(0)
+
                 predicted = torch.cuda.LongTensor([predicted])
             sampled_ids.append(predicted)
 
@@ -375,7 +389,7 @@ class BAN_HSC(nn.Module):
 
         return Generated_Explains
 
-    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, useVQA=False):
+    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, useVQA=False, checkBeta=False):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -391,11 +405,14 @@ class BAN_HSC(nn.Module):
                 logits=None
                 att=None
 
-            encoded_features, union_vfeats, atted_v_feats = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
-                                                                        model_num=model_num, isUnion=isUnion)
+            encoded_features, union_vfeats, atted_v_feats, betas = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
+                                                                        model_num=model_num, isUnion=isUnion, checkBeta=True)
 
             Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False)
-            return Generated_Captions, logits, att, union_vfeats, atted_v_feats # atted_v_feats = Vmat
+            if(checkBeta):
+                return Generated_Captions, logits, att, union_vfeats, atted_v_feats, betas
+            else:
+                return Generated_Captions, logits, att, union_vfeats, atted_v_feats # atted_v_feats = Vmat
         else:
             if (useVQA):
                 atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
@@ -405,20 +422,22 @@ class BAN_HSC(nn.Module):
                 logits=None
                 att=None
 
-            encoded_features = self.encoder(atted_v_feats, t_method)
+            encoded_features, betas = self.encoder(atted_v_feats, t_method, checkBeta_=True)
             if(s_method == 'BestOne'):
-                Generated_Captions=self.decoder.sample(encoded_features)
+                Generated_Captions=self.decoder.sample(encoded_features, model_num=model_num)
             elif(s_method == 'BeamSearch'):
                 Generated_Captions = self.decoder.BeamSearch(encoded_features,NumBeams=3)
 
-            return Generated_Captions, logits, att, encoded_features, None
+            if (checkBeta):
+                return Generated_Captions, logits, att, encoded_features, None, betas
+            else:
+                return Generated_Captions, logits, att, encoded_features, None
 
 
     def forward(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne'):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
-
         logits, att=self.BAN(v,b,q,None)
 
         att_final = att[:, -1, :, :]
@@ -730,19 +749,21 @@ class DecoderTopDown(nn.Module):
         for i in range(self.max_seg_length):
             #pdb.set_trace()
             valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input, states1=states1, states2=states2)
-            _, idx_outs = max_k(valid_outputs, dim_=1, k=self.max_seg_length)
-            for j in range(self.max_seg_length):
-                predicted = idx_outs[:,j]
-                if (predicted in sampled_ids):
-                    continue
-                else:
-                    break
-                # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
+
+            _, idx_outs = max_k_NoDuplicate(valid_outputs, sampled_ids, dim_=1,
+                                            k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+            predicted = idx_outs[:, 0]
 
             if (i == 0): # BUTD not starts with <sos>
-                outputs_candidate = valid_outputs[0, vocab_candidates]
-                _, output_best = outputs_candidate.max(0)
-                predicted = vocab_candidates[output_best]
+                if(vocab_candidates):
+                    outputs_candidate = valid_outputs[0, vocab_candidates]
+                    _, output_best = outputs_candidate.max(0)
+                    predicted = vocab_candidates[output_best]
+                else:
+                    outputs_candidate = valid_outputs[0]
+                    _,predicted=outputs_candidate.max(0)
+
+
                 predicted = torch.cuda.LongTensor([predicted])
             sampled_ids.append(predicted)
 
