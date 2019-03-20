@@ -391,9 +391,9 @@ class VQA_E_loader(data.Dataset):
 class VQA_E_finetuning_Dataset(VQAFeatureDataset):
     """VQA_E Dataset (VQA_E) compatible with torch.utils.data.DataLoader."""
 
-    def __init__(self,name,vqaDict, captionVcoab, dataroot='codes\\tools\\data', hdf5path='D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\hdf5',
-                 adaptive=True, vqa_E_train_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json',
-                 vqa_E_val_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json'):
+    def __init__(self,name,vqaDict, captionVcoab, dataroot=os.path.join('codes', 'tools', 'data'), hdf5path=addr_hdf5path,
+                 adaptive=True, vqa_E_train_path=addr_vqae_train_path,
+                 vqa_E_val_path=addr_vqae_val_path):
         assert name in ['train', 'val', 'eval']
         self.name = name
         if(name=='eval'):

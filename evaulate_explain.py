@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--op', type=str, default='c')
     parser.add_argument('--label', type=str, default='XAI')
     parser.add_argument('--gamma', type=int, default=2)
-    parser.add_argument('--split', type=str, default='test2014')
+    parser.add_argument('--split', type=str, default='validation')
     parser.add_argument('--input', type=str, default='saved_models/ban')
     parser.add_argument('--output', type=str, default='results')
     parser.add_argument('--batch_size', type=int, default=16)
@@ -174,7 +174,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     bar.update(idx)
     result_json=make_json(captions_list, img_id_list)
 
-    with open(args.result_json_path + '/captions_%s_%s_results.json' \
+    with open(args.result_json_path + '/VQAEexplains_%s_%s_results.json' \
               % (args.split, args.method), 'w') as f:
 
         json.dump(result_json, f)
