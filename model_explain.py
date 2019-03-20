@@ -534,3 +534,11 @@ def CaptionVocabCandidate(Question,Answer, CocoVocab):
 
 
     return CocoVocabList
+
+def CaptionVocabCandidateBox(Question,Answer, CocoVocab):
+    voc_list=[]
+    for b_idx in range(len(Question)):
+        voc_list.append(CaptionVocabCandidate(Question[b_idx],Answer[b_idx],CocoVocab))
+
+
+    return voc_list

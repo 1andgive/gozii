@@ -25,6 +25,7 @@ from model_explain import CaptionEncoder
 from data_loader import VQAE_FineTunning_loader
 import pickle
 import pdb
+from codes.base_model import BiSU
 
 
 # Device configuration
@@ -63,6 +64,8 @@ def parse_args():
     parser.add_argument('--model_num_CE', type=int, default=1, help='model number of caption encoder')
     parser.add_argument('--checkpoint_dir', type=str, default='None', help='loading from this checkpoint')
     parser.add_argument('--isBUTD', type=bool, default=False)
+    parser.add_argument('--selfAtt', type=bool, default=False, help='self Attention?')
+    parser.add_argument('--input_selfAtt', type=str, default=None)
     args = parser.parse_args()
     return args
 
@@ -100,7 +103,7 @@ if __name__ == '__main__':
         vocab_VQAE = pickle.load(f)
 
 
-    vqaE_loader = VQAE_FineTunning_loader('train+val', dictionary_vqa, vocab_VQAE, args.batch_size, shuffle=True, num_workers=0)
+    vqaE_loader = VQAE_FineTunning_loader(args.split, dictionary_vqa, vocab_VQAE, args.batch_size, shuffle=True, num_workers=0)
     if(args.isBUTD):
         decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab_VQAE),
                                  args.num_layers,
@@ -111,7 +114,12 @@ if __name__ == '__main__':
         vqaE_path = 'vqaE'
 
     constructor = 'build_%s' % args.model
-    model = getattr(base_model, constructor)(vqaE_loader.dataset.datasets[0], args.num_hid, args.op, args.gamma).cuda()
+
+    if(args.split == 'train+val'):
+        model = getattr(base_model, constructor)(vqaE_loader.dataset.datasets[0], args.num_hid, args.op, args.gamma).cuda()
+    elif(args.split == 'train'):
+        model = getattr(base_model, constructor)(vqaE_loader.dataset, args.num_hid, args.op,
+                                                 args.gamma).cuda()
 
     model_path = args.input + '/model%s.pth' % \
                  ('' if 0 > args.epoch else '_epoch%d' % args.epoch)
@@ -124,7 +132,17 @@ if __name__ == '__main__':
 
     ban_vqaE = EnsembleVQAE(model,decoder).to(device)
 
-    params=ban_vqaE.parameters()
+    if (args.selfAtt):
+        selfAtt = BiSU(256, 2048, 1)
+        selfAtt.to(device)
+        print('selfAttention applied')
+        requires_grad_Switch(selfAtt, isTrain=True)
+        params = list(ban_vqaE.parameters())+list(selfAtt.parameters())
+        vqaE_path += '_selfAtt'
+    else:
+        selfAtt=None
+        params = ban_vqaE.parameters()
+
     optimizer = torch.optim.Adamax(params, lr=args.learning_rate)
 
 
@@ -140,9 +158,12 @@ if __name__ == '__main__':
     requires_grad_Switch(model,isTrain=True)
     requires_grad_Switch(decoder, isTrain=True)
 
+
     total_step = len(vqaE_loader)
 
     epoch_start = 0
+
+
 
     if (args.checkpoint_dir != 'None'):
         model_vqaE_path = os.path.join(
@@ -150,7 +171,13 @@ if __name__ == '__main__':
             args.checkpoint_dir)
         model_vqaE_data = torch.load(model_vqaE_path)
         ban_vqaE.load_state_dict(model_vqaE_data['model_state'])
-        optimizer.load_state_dict(model_vqaE_data['optimizer_state'])
+
+        if (args.input_selfAtt):
+            print('loading %s' % args.input_selfAtt)
+            selfAtt_data = torch.load(args.input_selfAtt)
+            selfAtt.load_state_dict(selfAtt_data.get('model_state', selfAtt_data))
+            optimizer.load_state_dict(model_vqaE_data['optimizer_state'])
+
         epoch_start = model_vqaE_data['epoch']+1
 
     for epoch in range(epoch_start, args.num_epoch):
@@ -158,6 +185,11 @@ if __name__ == '__main__':
 
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             v = v.cuda()
+
+            if (args.selfAtt):
+                v = selfAtt(v)
+                selfAtt.zero_grad()
+
             captions = captions.cuda()
             targets = targets.cuda()
 
@@ -180,5 +212,9 @@ if __name__ == '__main__':
         # implement utils.save_xai_model
 
         utils_save.save_all_model(save_path, ban_vqaE, epoch, optimizer)
+        if (args.selfAtt):
+            save_path_selfAtt = os.path.join(
+                'model_xai', vqaE_path, 'selfAtt-{}-Final.pth'.format(epoch + 1))
+            utils_save.save_all_model(save_path_selfAtt, selfAtt, epoch, optimizer)
 
         ####################################################################################################

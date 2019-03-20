@@ -260,22 +260,24 @@ class DecoderRNN(nn.Module):
             outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)                        # predicted: (batch_size)
             if(i==0):
-                predicted=torch.cuda.LongTensor([1]) # '<start>'
+                predicted=torch.cuda.LongTensor(features.size(0)).fill_(1) # '<start>'
             # elif (i == 1):
             #     answer_word=vocab_candidates[0]
             #
             #     predicted=torch.cuda.LongTensor([answer_word]) # '<start>'
             #     vocab_candidates.remove(answer_word)
             elif (i == 1):
-                if(vocab_candidates):
-                    outputs_candidate=outputs[0,vocab_candidates]
-                    _, output_best = outputs_candidate.max(0)
-                    predicted = vocab_candidates[output_best]
-                else:
-                    outputs_candidate = outputs[0]
-                    _,predicted=outputs_candidate.max(0)
-
-                predicted = torch.cuda.LongTensor([predicted])
+                predicted=[]
+                for b_idx in range(outputs.size(0)):
+                    if(vocab_candidates[b_idx]):
+                        outputs_candidate=outputs[b_idx, vocab_candidates[b_idx]]
+                        _, output_best = outputs_candidate.max(0)
+                        predicted.append(vocab_candidates[b_idx][output_best])
+                    else:
+                        outputs_candidate = outputs[b_idx]
+                        _,predicted_id=outputs_candidate.max(0)
+                        predicted.append(predicted_id)
+                predicted = torch.cuda.LongTensor(predicted)
             sampled_ids.append(predicted)
 
             inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
