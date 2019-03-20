@@ -442,6 +442,8 @@ class VQA_E_finetuning_Dataset(VQAFeatureDataset):
 
 
         img_id=self.VQA_E[index]['img_id']
+        if(self.name == 'eval'):
+            ann_id = self.VQA_E[index]['ann_id']
         hdf_img_idx=self.img_id2idx[img_id]
         self.features_hf=self.hf.get('image_features')
         self.spatials_hf=self.hf.get('spatial_features')
@@ -459,7 +461,7 @@ class VQA_E_finetuning_Dataset(VQAFeatureDataset):
         if answer is not None:
             target.scatter_(0, torch.LongTensor([answer]), 1)
         if (self.name =='eval'):
-            return features, spatials, Wq_, target.cuda(), Wc_, img_id  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
+            return features, spatials, Wq_, target.cuda(), Wc_, ann_id  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
         else:
             return features, spatials, Wq_, target.cuda(), Wc_  # Wq_ <= question in MSCOCO-VQA index // Wc_ <== caption in MSCOCO_Caption index // answer <== MSCOCO-VQA answer label
 
