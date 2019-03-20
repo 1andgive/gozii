@@ -15,9 +15,9 @@ from build_vocab import Vocabulary
 from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC, DecoderTopDown
 from model_VQAE import EnsembleVQAE
 import utils_hsc as utils_save
+from address_server_XAI import *
 
-
-sys.path.append('D:\\VQA\\BAN')
+sys.path.append(addr_BAN)
 
 import codes.base_model as base_model
 from codes.dataset import Dictionary, VQAFeatureDataset
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     name = 'train'
 
     question_path = os.path.join(
-        'codes\\tools\\data', 'v2_OpenEnded_mscoco_%s_questions.json' % \
+        'codes', 'tools', 'data', 'v2_OpenEnded_mscoco_%s_questions.json' % \
                   (name + '2014' if 'test' != name[:4] else name))
     questions = sorted(json.load(open(question_path))['questions'],
                        key=lambda x: x['question_id'])

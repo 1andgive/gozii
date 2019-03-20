@@ -1,7 +1,0 @@
-loading dictionary from codes/tools/data/dictionary.pkl
-loading features from h5 file
-loading imagefeatures
-loading spatial features
-loading saved_models/ban/model_epoch12.pth
-loading hsc datas models/uncorr/model1_LR64/model-16.pth
-t_method : uncorr, x_method : weight_only, isBUTD : False, isUnion : True
