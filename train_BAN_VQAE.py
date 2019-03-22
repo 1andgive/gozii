@@ -174,7 +174,10 @@ if __name__ == '__main__':
 
         if (args.input_selfAtt):
             print('loading %s' % args.input_selfAtt)
-            selfAtt_data = torch.load(args.input_selfAtt)
+            model_vqaE_selfAtt_path = os.path.join(
+                'model_xai', vqaE_path,
+                args.input_selfAtt)
+            selfAtt_data = torch.load(model_vqaE_selfAtt_path)
             selfAtt.load_state_dict(selfAtt_data.get('model_state', selfAtt_data))
             optimizer.load_state_dict(model_vqaE_data['optimizer_state'])
 

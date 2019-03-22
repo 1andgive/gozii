@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "train_BAN_VQAE.py", line 20, in <module>
-    sys.path.append(addr_BAN)
-NameError: name 'addr_BAN' is not defined

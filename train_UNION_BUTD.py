@@ -162,13 +162,13 @@ if __name__ == '__main__':
     parser.add_argument('--log_step', type=int , default=100, help='step size for prining log info')
 
     # Model parameters
-    parser.add_argument('--embed_size', type=int , default=256, help='dimension of word embedding vectors')
-    parser.add_argument('--hidden_size', type=int , default=512, help='dimension of lstm hidden states')
-    parser.add_argument('--paramH', type=int, default=256, help='dimension of lstm hidden states')
+    parser.add_argument('--embed_size', type=int , default=1000, help='dimension of word embedding vectors')
+    parser.add_argument('--hidden_size', type=int , default=1000, help='dimension of lstm hidden states')
+    parser.add_argument('--paramH', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num_layers', type=int , default=1, help='number of layers in lstm')
     
     parser.add_argument('--num_epochs', type=int, default=20)
-    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--t_method', type=str, default='uncorr')

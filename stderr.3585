@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "train_BAN_VQAE.py", line 97, in <module>
-    questions = sorted(json.load(open(question_path))['questions'],
-FileNotFoundError: [Errno 2] No such file or directory: 'codes\\tools\\data/v2_OpenEnded_mscoco_train2014_questions.json'

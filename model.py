@@ -590,35 +590,23 @@ class DecoderTopDown(nn.Module):
         self.max_seg_length = max_seq_length
         self.softmax = nn.Softmax(dim=1)
         self.paramH=paramH
-        self.linear_Wva=nn.Linear(vdim,self.paramH)
-        self.linear_Wha = nn.Linear(hidden_size1,self.paramH)
-        self.linear_wa = nn.Linear(self.paramH, 1)
+        self.linear_Wva=nn.Linear(vdim,self.paramH, bias=False)
+        self.linear_Wha = nn.Linear(hidden_size1,self.paramH, bias=False)
+        self.linear_wa = nn.Linear(self.paramH, 1, bias=False)
         self.act_tanh=nn.Tanh()
 
     def forward(self, Vmat, enc_features, union_vfeats, captions, lengths, memory_save=False, isUnion=False):
         """Decode image feature vectors and generates captions."""
         embeddings = self.embed(captions)
-        #embeddings = torch.cat((enc_features.unsqueeze(1), embeddings), 1)
-
-
-        ## OVERALL STRATEGY
-        # loop with padded sequence length
-        # eliminate data that meet up its original length
-
         batch_size=captions.size(0)
-        iter_batch_idx=list(range(batch_size))
 
         max_seq_length=captions.size(1)
-
-
 
         hidden2=torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
 
         states1=None
         states2=[hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
-        iter_batch_idx_list=[]
-        states1_list=[[],[]]
-        states2_list=[[],[]]
+
 
         if(isUnion):
             # pseudo(Vmat_transpose) -> pVmat
@@ -630,72 +618,14 @@ class DecoderTopDown(nn.Module):
             beta=torch.matmul(pVmat,union_vfeats.unsqueeze(2))
             Vmat=beta*Vmat
 
-        if (memory_save):
-            outputs = torch.cuda.FloatTensor(batch_size, max_seq_length, self.vocab_size).fill_(0)
 
-            for i in range(max_seq_length):
-                iter_batch_idx=[j for j in iter_batch_idx if lengths[j]> i]
-                iter_batch_idx_list.append(iter_batch_idx)
-                input1=torch.cat([hidden2[iter_batch_idx_list[i],:], union_vfeats[iter_batch_idx_list[i], :], embeddings[iter_batch_idx_list[i],i,:]],1)
-                input1=input1.unsqueeze(1)
+        outputs=[]
+        for i in range(max_seq_length):
+            valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, embeddings[:, i, :],
+                                                                             states1=states1, states2=states2)
 
-                if i==0:
-                    hidden1, states1=self.TopDownAttentionLSTM(input1,states1)
-                else:
-                    hidden1, states1 = self.TopDownAttentionLSTM(input1, tuple([states1_list[0][:,iter_batch_idx_list[i],:].cuda(), states1_list[1][:,iter_batch_idx_list[i],:].cuda()]))
-
-                atten_logit=self.linear_wa(self.act_tanh(self.linear_Wva(Vmat[iter_batch_idx_list[i], :])+self.linear_Wha(hidden1)))
-                atten_logit=atten_logit.squeeze(2)
-                atten=self.softmax(atten_logit)
-                atten=atten.unsqueeze(1)
-                atten_vfeats=torch.matmul(atten,Vmat[iter_batch_idx_list[i], :])
-                input2=torch.cat([atten_vfeats, hidden1],2)
-                if i == 0:
-                    hidden2, states2= self.LanguageLSTM(input2,states2)
-                else:
-                    hidden2, states2 = self.LanguageLSTM(input2,tuple([states2_list[0][:,iter_batch_idx_list[i],:].cuda(), states2_list[1][:,iter_batch_idx_list[i],:].cuda()]))
-
-
-                valid_outputs = self.linear(hidden2)  # teacher forcing 방식
-                hidden2=hidden2.squeeze(1)
-                outputs[iter_batch_idx_list[i],i,:]=valid_outputs.squeeze(1)
-                if i == 0:
-                    states1_list[0]= states1[0].clone().cpu()
-                    states1_list[1]= states1[1].clone().cpu()
-                    states1 = None
-                    states2_list[0]= states2[0].clone().cpu()
-                    states2_list[1] =states2[1].clone().cpu()
-                    states2 = None
-                else:
-                    states1_list[0][:, iter_batch_idx_list[i], :] = states1[0][:, iter_batch_idx_list[i], :].cpu()
-                    states1_list[1][:, iter_batch_idx_list[i], :] = states1[1][:, iter_batch_idx_list[i], :].cpu()
-                    states1 = None
-                    states2_list[0][:, iter_batch_idx_list[i], :] = states2[0][:, iter_batch_idx_list[i], :].cpu()
-                    states2_list[1][:, iter_batch_idx_list[i], :] = states2[1][:, iter_batch_idx_list[i], :].cpu()
-                    states2 = None
-
-        else:
-            outputs=[]
-            for i in range(max_seq_length):
-                input1 = torch.cat([hidden2, union_vfeats,
-                                    embeddings[:, i, :]], 1)
-                input1 = input1.unsqueeze(1)
-
-                hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
-
-                atten_logit = self.linear_wa(
-                    self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
-                atten_logit = atten_logit.squeeze(2)
-                atten = self.softmax(   atten_logit)
-                atten = atten.unsqueeze(1)
-                atten_vfeats = torch.matmul(atten, Vmat)
-                input2 = torch.cat([atten_vfeats, hidden1], 2)
-                hidden2, states2 = self.LanguageLSTM(input2, states2)
-
-                valid_outputs = self.linear(hidden2)  # teacher forcing 방식
-                hidden2 = hidden2.squeeze(1)
-                outputs.append(valid_outputs.squeeze(1))
-            outputs=torch.stack(outputs,1)
+            outputs.append(valid_outputs)
+        outputs=torch.stack(outputs,1)
         return outputs
         #hidden2_out_prev=
 

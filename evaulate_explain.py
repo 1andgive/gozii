@@ -235,13 +235,8 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     bar.update(idx)
     result_json=make_json(captions_list_all, img_id_list)
 
-<<<<<<< HEAD
-    with open(args.result_json_path + '/VQAEexplains_%s_%s_results.json' \
-              % (args.split, args.method), 'w') as f:
-=======
     with open(args.result_json_path + '/VQAEexplain_%s_results.json' \
               % (method), 'w') as f:
->>>>>>> b76e7a47c98e4814eb59cf0f0a63b0347f983398
 
         json.dump(result_json, f)
 
@@ -358,10 +353,13 @@ if __name__ == '__main__':
 
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(vqaE_loader.dataset, args.num_hid, args.op,
-                                             args.gamma).cuda()
+                                             args.gamma).cuda() #<= this is the BAN-VQAE
     model_BUTD = getattr(base_model, constructor)(vqaE_loader.dataset, args.num_hid, args.op, args.gamma).cuda()
 
-    def process(args, model, model_BUTD, eval_loader,Dict_qid2vid,vocab):
+    model_BAN = getattr(base_model, constructor)(vqaE_loader.dataset, args.num_hid, args.op,
+                                             args.gamma).cuda()  # <= this is the BAN
+
+    def process(args, model, model_BUTD, model_BAN, eval_loader,Dict_qid2vid,vocab):
 
         model_hsc_path_LRCN_mean = os.path.join(
             args.hsc_path, 'mean', 'model{}_LR{}'.format(args.model_num, args.LRdim), 'model-{}.pth'.format(16))
@@ -393,9 +391,12 @@ if __name__ == '__main__':
         decoder_BUTD_mean.load_state_dict(model_hsc_BUTD_data_mean['decoder_state'])
         decoder_BUTD_uni.load_state_dict(model_hsc_BUTD_data_uni['decoder_state'])
 
-        model_vqae_path = args.model_vqaE + '/vqaE-20-Final.pth'
+        model_vqae_path = args.model_vqaE + '/vqaE-19-Final.pth'
 
         model_vqae_BUTD_path = args.model_vqaE_BUTD + '/vqaE-20-Final.pth'
+
+        model_BAN_path = args.input + '/model%s.pth' % \
+                 ('' if 0 > 12 else '_epoch%d' % 12)
 
         print('loading %s' % model_vqae_path)
         model_vqae_LRCN_data = torch.load(model_vqae_path)
@@ -403,13 +404,16 @@ if __name__ == '__main__':
         print('loading %s' % model_vqae_BUTD_path)
         model_vqae_BUTD_data = torch.load(model_vqae_BUTD_path)
 
+        print('loading %s' % model_BAN_path)
+        model_BAN_data = torch.load(model_BAN_path)
+
         if (args.selfAtt):
             print('loading %s' % args.input_selfAtt)
-            selfAtt_data = torch.load(os.path.join('model_XAI', 'vqaE', args.input_selfAtt))
+            selfAtt_data = torch.load(os.path.join('model_XAI', 'vqaE_selfAtt', args.input_selfAtt))
             selfAtt.load_state_dict(selfAtt_data.get('model_state', selfAtt_data))
 
 
-            model_vqae_path = args.model_vqaE + '/vqaE-39-Final.pth'
+            model_vqae_path = args.model_vqaE + '/vqaE-19-Final.pth'
             model_vqae_LRCN_data = torch.load(model_vqae_path)
             print('reloading %s' % model_vqae_path)
             selfAtt.train(False)
@@ -417,11 +421,15 @@ if __name__ == '__main__':
 
         model = nn.DataParallel(model).cuda()
         model_BUTD = nn.DataParallel(model_BUTD).cuda()
+        model_BAN= nn.DataParallel(model_BAN).cuda()
+
         ensemble_LRCN = EnsembleVQAE(model, decoder_vqae_LRCN).to(device)
         ensemble_LRCN.load_state_dict(model_vqae_LRCN_data['model_state'])
 
         ensemble_BUTD = EnsembleVQAE(model_BUTD, decoder_vqae_BUTD).to(device)
         ensemble_BUTD.load_state_dict(model_vqae_BUTD_data['model_state'])
+
+        model_BAN.load_state_dict(model_BAN_data['model_state'])
 
 
 
@@ -441,8 +449,8 @@ if __name__ == '__main__':
         decoder_BUTD_mean.train(False)
         decoder_BUTD_uni.train(False)
 
-        caption_generator_LRCN_mean = BAN_HSC(model, encoder_LRCN_mean, decoder_LRCN_mean, vocab).to(device)
-        caption_generator_LRCN_uni = BAN_HSC(model, encoder_LRCN_uni, decoder_LRCN_uni, vocab).to(device)
+        caption_generator_LRCN_mean = BAN_HSC(model_BAN, encoder_LRCN_mean, decoder_LRCN_mean, vocab).to(device)
+        caption_generator_LRCN_uni = BAN_HSC(model_BAN, encoder_LRCN_uni, decoder_LRCN_uni, vocab).to(device)
         caption_generator_BUTD_mean = BAN_HSC(model_BUTD, encoder_BUTD_mean, decoder_BUTD_mean, vocab).to(device)
         caption_generator_BUTD_uni = BAN_HSC(model_BUTD, encoder_BUTD_uni, decoder_BUTD_uni, vocab).to(device)
 
@@ -454,7 +462,7 @@ if __name__ == '__main__':
         caption_generators=[ensemble_LRCN, caption_generator_LRCN_uni, caption_generator_LRCN_mean, caption_generator_LRCN_uni, ensemble_BUTD,
          caption_generator_BUTD_uni, caption_generator_BUTD_mean, caption_generator_BUTD_uni]
 
-        for idx in range(0,len(methods)):
+        for idx in range(1,len(methods)):
             check_captions(caption_generators[idx], eval_loader, Dict_qid2vid,vocabs[idx],args.save_fig_loc,args.x_method, args.t_method, args.s_method, args, methods[idx],selfAtt=selfAtt)
 
         ################################################################################################################
@@ -463,4 +471,4 @@ if __name__ == '__main__':
 
 
 
-    process(args, model, model_BUTD, vqaE_loader,Dict_qid2vid,vocab)
+    process(args, model, model_BUTD, model_BAN, vqaE_loader,Dict_qid2vid,vocab)
