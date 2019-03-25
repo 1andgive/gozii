@@ -101,7 +101,7 @@ class Encoder_HieStackedCorr(nn.Module):
             if(checkBeta):
                 return enc_features, unified_features, Vmat, betas
             else:
-                return enc_features, unified_features, Vmat
+                return enc_features, unified_features, Vmat, None
         elif (t_method == 'mean'):
             enc_features=self.bn(self.linear(features))
             unified_features=features
