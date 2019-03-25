@@ -119,9 +119,9 @@ def main(args):
 
             # Forward, backward and optimize
             if(torch.cuda.device_count() > 1):
-                features_encoded,union_vfeats, features=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+                features_encoded,union_vfeats, features, betas=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
             else:
-                features_encoded,union_vfeats, features=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+                features_encoded,union_vfeats, features, betas=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
 
             outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
             #print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
