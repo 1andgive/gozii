@@ -621,10 +621,29 @@ class DecoderTopDown(nn.Module):
 
         outputs=[]
         for i in range(max_seq_length):
-            valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, embeddings[:, i, :],
-                                                                             states1=states1, states2=states2)
+            # valid_outputs, hidden2, states1, states2 = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, embeddings[:, i, :],
+            #                                                                  states1=states1, states2=states2)
+            #
+            # outputs.append(valid_outputs)
 
-            outputs.append(valid_outputs)
+            input1 = torch.cat([hidden2, union_vfeats,
+                                embeddings[:, i, :]], 1)
+            input1 = input1.unsqueeze(1)
+
+            hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
+
+            atten_logit = self.linear_wa(
+                self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
+            atten_logit = atten_logit.squeeze(2)
+            atten = self.softmax(atten_logit)
+            atten = atten.unsqueeze(1)
+            atten_vfeats = torch.matmul(atten, Vmat)
+            input2 = torch.cat([atten_vfeats, hidden1], 2)
+            hidden2, states2 = self.LanguageLSTM(input2, states2)
+
+            valid_outputs = self.linear(hidden2)  # teacher forcing 방식
+            hidden2 = hidden2.squeeze(1)
+            outputs.append(valid_outputs.squeeze(1))
         outputs=torch.stack(outputs,1)
         return outputs
         #hidden2_out_prev=
