@@ -127,9 +127,11 @@ def main(args):
     print('t_method : {}, isUnion : {}, model_num : {}'.format(args.t_method, args.isUnion, args.model_num))
 
     if (args.checkpoint_dir != 'None'):
+
         model_hsc_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
             args.checkpoint_dir)
+        print("loading from {}".format(model_hsc_path))
         model_hsc_data = torch.load(model_hsc_path)
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
@@ -144,7 +146,9 @@ def main(args):
     i_train = 0
     cider_scorer=CiderScorer(n=4,sigma=6.0)
 
-    for epoch in range(epoch_start, args.num_epochs):
+
+
+    for epoch in range(args.num_epochs):
         # for i, (images, captions, lengths) in enumerate(data_loader):
 
         for i, (features, spatials, img_Ids) in enumerate(data_loader):
@@ -152,13 +156,14 @@ def main(args):
 
             features = features.cuda()
 
+
             # Forward, backward and optimize
             if (torch.cuda.device_count() > 1):
-                features_encoded, union_vfeats, features = encoder.module.forward_BUTD(features, t_method=args.t_method,
+                features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, t_method=args.t_method,
                                                                                        model_num=args.model_num,
                                                                                        isUnion=args.isUnion)
             else:
-                features_encoded, union_vfeats, features = encoder.forward_BUTD(features, t_method=args.t_method,
+                features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, t_method=args.t_method,
                                                                                 model_num=args.model_num,
                                                                                 isUnion=args.isUnion)
 
@@ -223,11 +228,11 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', type=str, default='models_BUTD/standard_vocab/', help='path for saving trained models')
+    parser.add_argument('--model_path', type=str, default='models_BUTD/', help='path for saving trained models')
     parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')
     parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--image_dir', type=str, default='data/resized2014', help='directory for resized images')
-    parser.add_argument('--checkpoint_dir', type=str, default='model-20.pth', help='loading from this checkpoint')
+    parser.add_argument('--checkpoint_dir', type=str, default='model-100.pth', help='loading from this checkpoint')
     parser.add_argument('--log_step', type=int, default=100, help='step size for prining log info')
 
     # Model parameters

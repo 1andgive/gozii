@@ -75,7 +75,8 @@ class CocoDataset(data.Dataset):
 class BottomUp_CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
 
-    def __init__(self, name, json_, vocab, dataroot=addr_dataroot, hdf5path=addr_hdf5path):
+    #def __init__(self, name, json_, vocab, dataroot=addr_dataroot, hdf5path=addr_hdf5path, adaptive_=True):
+    def __init__(self, name, json_, vocab, dataroot=addr_pklfix_path, hdf5path=addr_hdf5fix_path, adaptive_=False):
         """Set the path for images, captions and vocabulary wrapper.
 
         Args:
@@ -85,7 +86,7 @@ class BottomUp_CocoDataset(data.Dataset):
         """
 
         assert name in ['train', 'val', 'test-dev2015', 'test2015', 'test2014', 'val2014', 'trainCider', 'valCider']
-        self.adaptive = True
+        self.adaptive = adaptive_
         self.name=name
         if(name=='val2014' or name == 'valCider'):
             name='val'

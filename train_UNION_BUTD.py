@@ -134,6 +134,9 @@ def main(args):
             if(torch.cuda.device_count() > 1):
                 loss=loss.mean()
             loss.backward()
+
+            # Clip gradients when they are getting too large
+            torch.nn.utils.clip_grad_norm_(params, 0.25)
             
             optimizer.step()
             
@@ -154,9 +157,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', type=str, default='models_BUTD/' , help='path for saving trained models')
+    parser.add_argument('--model_path', type=str, default='models_BUTD_36/standard_vocab/' , help='path for saving trained models')
     parser.add_argument('--crop_size', type=int, default=224 , help='size for randomly cropping images')
-    parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/vocab_standard_train_val.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--image_dir', type=str, default='data/resized2014', help='directory for resized images')
     parser.add_argument('--checkpoint_dir', type=str, default='None', help='loading from this checkpoint')
     parser.add_argument('--log_step', type=int , default=100, help='step size for prining log info')
@@ -167,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument('--paramH', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num_layers', type=int , default=1, help='number of layers in lstm')
     
-    parser.add_argument('--num_epochs', type=int, default=20)
+    parser.add_argument('--num_epochs', type=int, default=40)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)

@@ -18,6 +18,8 @@ if(platform.system() == 'Linux'):
     addr_cider_score_path = '../../XAI/coco_caption_jiasen3'
     addr_vqae_val_path = '../../Data_Share/Datas/VQA-E/VQA-E_val_set.json'
     addr_vqae_train_path = '../../Data_Share/Datas/VQA-E/VQA-E_train_set.json'
+    addr_hdf5fix_path = '../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5'
+    addr_pklfix_path = '../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/pkl'
     
 elif(platform.system() == 'Windows'):
     addr_BAN = 'D:\\VQA\\BAN'
@@ -31,3 +33,6 @@ elif(platform.system() == 'Windows'):
     addr_cider_score_path='D:\\XAI\\coco_caption_jiasen3'
     addr_vqae_val_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_val_set.json'
     addr_vqae_train_path='D:\\Data_Share\\Datas\\VQA-E\\VQA-E_train_set.json'
+
+    addr_hdf5fix_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\hdf5'
+    addr_pklfix_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\BottomUpPreTrain\\pkl'
