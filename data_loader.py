@@ -97,9 +97,13 @@ class BottomUp_CocoDataset(data.Dataset):
             open(os.path.join(dataroot, '%s%s_imgid2idx.pkl' % (name, '' if self.adaptive else '36')), 'rb'))
         self.h5_path = os.path.join(hdf5path, '%s%s.hdf5' % (name, '' if self.adaptive else '36'))
 
+        if not os.path.isfile(self.h5_path):
+            print('file %s not found' % self.h5_path)
 
+        if not os.access(self.h5_path, os.R_OK):
+            print('file %s not readable' % self.h5_path)
 
-        print('loading features from h5 file')
+        print('loading features from h5 file : {}'.format(self.h5_path))
         hf = h5py.File(self.h5_path, 'r')
         self.hf = hf
         # self.features = np.array(hf.get('image_features')) # visual features, change this to vs_features=hf.get('image_features'), self.features_batch=np.array(vs_features[batch_idx])
