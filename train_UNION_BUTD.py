@@ -13,6 +13,7 @@ import pdb
 import utils_hsc as utils
 from address_server_XAI import *
 import progressbar
+import sys
 
 
 
@@ -54,7 +55,7 @@ def main(args):
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim)
     decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers, paramH=args.paramH)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().to(device)
     
     if(torch.cuda.device_count() > 1):
         encoder=nn.DataParallel(encoder)
@@ -146,6 +147,7 @@ def main(args):
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
                       .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item())))
+                sys.stdout.flush()
 
         # Save the model checkpoints
         model_path = os.path.join(
