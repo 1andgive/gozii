@@ -577,7 +577,7 @@ def max2D_k(list2D,k=1):
 
 
 class DecoderTopDown(nn.Module):
-    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=20, paramH=256):
+    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=20, paramH=256, dropout=0.5):
         """Set the hyper-parameters and build the layers."""
         super(DecoderTopDown, self).__init__()
         self.vocab_size = vocab_size
@@ -586,13 +586,18 @@ class DecoderTopDown(nn.Module):
         self.hidden_size1 = hidden_size1
         self.TopDownAttentionLSTM = nn.LSTM(hidden_size2+vdim+embed_size, hidden_size1, num_layers, batch_first=True)
         self.LanguageLSTM = nn.LSTM(hidden_size1+vdim, hidden_size2, num_layers, batch_first=True)
-        self.linear = nn.Linear(hidden_size2, vocab_size)
+
         self.max_seg_length = max_seq_length
         self.softmax = nn.Softmax(dim=1)
         self.paramH=paramH
-        self.linear_Wva=nn.Linear(vdim,self.paramH, bias=False)
-        self.linear_Wha = nn.Linear(hidden_size1,self.paramH, bias=False)
-        self.linear_wa = nn.Linear(self.paramH, 1, bias=False)
+
+        self.linear_Wva=weight_norm(nn.Linear(vdim,self.paramH, bias=False))
+        self.linear_Wha = weight_norm(nn.Linear(hidden_size1,self.paramH, bias=False))
+        self.linear_wa = weight_norm(nn.Linear(self.paramH, 1, bias=False))
+        self.linear = weight_norm(nn.Linear(hidden_size2, vocab_size))
+
+        self.dropout = nn.Dropout(p=dropout)
+
         self.act_tanh=nn.Tanh()
 
     def forward(self, Vmat, enc_features, union_vfeats, captions, lengths, memory_save=False, isUnion=False):
@@ -730,8 +735,8 @@ class DecoderTopDown(nn.Module):
 
         hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
 
-        atten_logit = self.linear_wa(
-            self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
+        atten_logit = self.linear_wa(self.dropout(
+            self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1))))
         atten_logit = atten_logit.squeeze(2)
         atten = self.softmax(atten_logit)
         atten = atten.unsqueeze(1)
