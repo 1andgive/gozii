@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "train_UNION_BUTD.py", line 7, in <module>
+    from data_loader import BottomUp_get_loader
+  File "/mnt/server2_raid/seungjun/XAI/BAN_XAI/data_loader.py", line 101
+    print 'file %s not found' % self.h5_path
+                            ^
+SyntaxError: Missing parentheses in call to 'print'. Did you mean print('file %s not found' % self.h5_path)?
