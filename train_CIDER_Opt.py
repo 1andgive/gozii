@@ -150,9 +150,12 @@ def main(args):
 
     for epoch in range(args.num_epochs):
         # for i, (images, captions, lengths) in enumerate(data_loader):
+        print('epoch start')
+
 
         for i, (features, spatials, img_Ids) in enumerate(data_loader):
             bar.update(i_train)
+
 
             features = features.cuda()
 
@@ -167,7 +170,7 @@ def main(args):
                                                                                 model_num=args.model_num,
                                                                                 isUnion=args.isUnion)
 
-            outputs = decoder.BeamSearch(features, union_vfeats, NumBeams=5)
+            outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=5, EOS_Token=vocab('<end>'))
             # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
 
             ##################################################### RL HERE ##############################################
@@ -228,11 +231,11 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', type=str, default='models_BUTD/', help='path for saving trained models')
+    parser.add_argument('--model_path', type=str, default='models_BUTD_36/standard_vocab/', help='path for saving trained models')
     parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')
     parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--image_dir', type=str, default='data/resized2014', help='directory for resized images')
-    parser.add_argument('--checkpoint_dir', type=str, default='model-100.pth', help='loading from this checkpoint')
+    parser.add_argument('--checkpoint_dir', type=str, default='model-40.pth', help='loading from this checkpoint')
     parser.add_argument('--log_step', type=int, default=100, help='step size for prining log info')
 
     # Model parameters
@@ -242,10 +245,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
 
     parser.add_argument('--num_epochs', type=int, default=40)
-    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)
-    parser.add_argument('--t_method', type=str, default='uncorr')
+    parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--isUnion', type=bool, default=False)

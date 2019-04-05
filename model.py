@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 import numpy as np
 from torch.nn.utils.weight_norm import weight_norm
+from copy import deepcopy
 # model = expectation, relu
 # model2 = probability, relu
 # model3 = expectation, tanh
@@ -771,10 +772,17 @@ class DecoderTopDown(nn.Module):
         for i in range(self.max_seg_length):
             for beam_idx in range(NumBeams):
 
+                ##################################################### Adapter starts here ###############################################################################
+
+
                 valid_outputs, hidden2[beam_idx], states1[beam_idx], states2[beam_idx] = self.BUTD_LSTM_Module(Vmat, hidden2[beam_idx], union_vfeats, input[beam_idx],
                                                                                  states1=states1[beam_idx], states2=states2[beam_idx])
                 valid_outputs=self.softmax(valid_outputs)
+                pdb.set_trace()
                 tmp_probs, predicted = max_k_NoDuplicate(valid_outputs, sample_ids[beam_idx], dim_=1, k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+
+                ##################################################### Adapter ends here #################################################################################
+
 
                 # if intial step, directly go to next step
                 if( i == 0):
@@ -819,5 +827,236 @@ class DecoderTopDown(nn.Module):
 
         return sampled_id_list
 
-        
+    def BottomUpBeamAdapter(self, PackedArgs, Traj, NumBeams):
+        '''
+
+        :param PackedArgs: (Vmat, hidden2, meanVmat, input, states1_h, states1_c, states2_h, states2_c)
+        :param Traj: batchwise-trajectory
+        :param NumBeams:
+        :return:
+        '''
+
+
+        if(Traj):
+            batchsize=len(Traj)
+            seq_len=len(Traj[0])
+            Traj=[torch.cuda.LongTensor([Traj[x][y] for x in range(batchsize)]) for y in range(seq_len)]
+
+
+        if (PackedArgs[4] is not None):
+            valid_outputs, hidden2_tmp, states1_tmp, states2_tmp = self.BUTD_LSTM_Module(PackedArgs[0], PackedArgs[1],
+                                                                                         PackedArgs[2], PackedArgs[3],
+                                                                                         [PackedArgs[4].unsqueeze(0),
+                                                                                          PackedArgs[5].unsqueeze(0)],
+                                                                                         [PackedArgs[6].unsqueeze(0),
+                                                                                          PackedArgs[7].unsqueeze(0)])
+        else:
+            valid_outputs, hidden2_tmp, states1_tmp, states2_tmp = self.BUTD_LSTM_Module(PackedArgs[0], PackedArgs[1],
+                                                                                         PackedArgs[2], PackedArgs[3],
+                                                                                         None,
+                                                                                         [PackedArgs[6].unsqueeze(0),
+                                                                                          PackedArgs[7].unsqueeze(0)])
+        valid_outputs = self.softmax(valid_outputs)
+        tmp_probs, predicted = max_k_NoDuplicate(valid_outputs, Traj, dim_=1,
+                                                 k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+
+        NewPacks=[[PackedArgs[0], hidden2_tmp, PackedArgs[2], self.embed(predicted[:,x]), states1_tmp[0].squeeze(0), states1_tmp[1].squeeze(0), states2_tmp[0].squeeze(0), states2_tmp[1].squeeze(0)] for x in range(NumBeams)]
+
+        return torch.log(tmp_probs), predicted, NewPacks
+
+    def BeamSearch2(self, Vmat, meanVmat, NumBeams=5, EOS_Token=99999):
+        """Generate captions for given image features using greedy search."""
+        batch_size = Vmat.size(0)
+        hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
+        states2 = [hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
+        states1 = None
+
+        input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
+        input = input.repeat(batch_size, 1)
+
+        if(states1):
+            PackArgs=[Vmat, hidden2, meanVmat, input, states1[0].squeeze(0), states1[1].squeeze(0), states2[0].squeeze(0), states2[1].squeeze(0)]
+        else:
+            PackArgs = [Vmat, hidden2, meanVmat, input, None, None,
+                        states2[0].squeeze(0), states2[1].squeeze(0)]
+
+        return beam_decode(self.BottomUpBeamAdapter, PackArgs, NumBeams, 20, EOS_Token)
+
+
+
+class BeamSearchNode(object):
+    def __init__(self, PackedArgs, trajectory, wordId, logProb):
+        '''
+        :param PackedArgs (ex: hiddenstate) up to (parent node -> itself):
+        :param trajectory up to parent node:
+        :param wordId of itself:
+        :param logProb up to parent node + logProb of itself:
+        '''
+        self.packed = PackedArgs
+        self.traj = trajectory
+        self.wordid = wordId
+        self.logp = logProb
+
+        self.reward = 0.0
+
+    def ciderReward(self, reward):
+        self.reward = reward
+
+        return self.reward
+
+    def getlogProbs(self):
+        return self.logp
+
+    def getPack(self):
+        return self.packed
+
+    def getTraj(self):
+        return self.traj
+
+class BatchBeamSearchNode(object):
+    def __init__(self, Batch_PackedArgs, Batch_trajectory, Batch_wordId, Batch_logProb, Batch_logProbNode):
+        '''
+        :param PackedArgs (ex: hiddenstate) up to (parent node -> itself):
+        :param trajectory up to parent node:
+        :param wordId of itself:
+        :param logProb up to parent node:
+        :param logProb of itself:
+        '''
+
+        self.BatchSize=Batch_logProbNode.size(0)
+        self.BatchNodes=[[] for x in range(self.BatchSize)]
+
+        self.Batch_trajectory=deepcopy(Batch_trajectory)
+
+        if (not(self.Batch_trajectory)):
+            self.Batch_trajectory=[[Batch_wordId[x].item()] for x in range(self.BatchSize)]
+        else:
+            for batch_idx in range(self.BatchSize):
+                self.Batch_trajectory[batch_idx].append(Batch_wordId[batch_idx].item())
+
+        self.Batch_logp = Batch_logProb + Batch_logProbNode
+        self.Batch_wordId=Batch_wordId
+
+        for n_ in range(self.BatchSize):
+            tmp_Pack=[Arg[n_] for Arg in Batch_PackedArgs]
+            self.BatchNodes[n_]=BeamSearchNode(tmp_Pack, self.Batch_trajectory[n_], Batch_wordId[n_], self.Batch_logp[n_])
+
+
+    def getlogProbs(self):
+        return self.Batch_logp
+
+    def getNodes(self):
+        return self.BatchNodes
+
+    def getTraj(self):
+        return self.Batch_trajectory
+
+    def setNodes(self, index, Node):
+        self.BatchNodes[index]=Node
+        self.Batch_logp[index]=Node.getlogProbs()
+        self.Batch_trajectory[index]=Node.getTraj()
+
+
+class BeamQueue:
+    def __init__(self, maxSize):
+        self.maxSize=maxSize
+        self.items=[] # [(logProb, node), (logProb, node) ...]
+
+    def isEmpty(self):
+        return self.items == []
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, index):
+        tmp=[el[1] for el in self.items[index]]
+        return tmp # return node
+
+    def insert(self, data):
+
+
+        if(self.__len__() >= self.maxSize):
+
+            batch_size = len(data)
+            for batch_idx in range(batch_size):
+                if(self.items[-1][batch_idx][0] < data[batch_idx][0]):
+                    self.items[-1][batch_idx]=data[batch_idx]
+        else:
+            self.items.append(data) # data=> batch probability
+            batch_size=len(data)
+            queue_len=self.__len__()
+
+            beam_data=[[self.items[x][y] for x in range(queue_len)] for y in range(batch_size)]
+            for a_beam in beam_data:
+                a_beam=sorted(a_beam, key=lambda x: int(x[0]), reverse=True)
+            self.items=[[[beam_data[y][x][0],
+                          beam_data[y][x][1]] for y in range(batch_size)] for x in range(queue_len)]
+
+
+def beam_decode(BeamNodeAdapter, PackedArguments, NumBeams, MaxSeqLength, EOS_Token, debug=False):
+
+    '''
+
+    :param BeamNodeAdapter:  BeamNode adapter for several different types of decoder
+    :param Decoder:     RNNdecoder (ex: BUTD)
+    :param PackedArguments:     (Inputs, States, etc)
+    :param NumBeams:    (Number of Beams)
+    :param MaxSeqLength:    (Maximum Sequence Length)
+    :param EOS_Token:   (EOS tOKEN)
+    :return:
+    '''
+
+    Trajs=[[] for x in range(NumBeams)]
+    logProbs_Trajs=[0.0 for x in range(NumBeams)]
+    template=[type(Arg_) for Arg_ in PackedArguments]
+
+
+    for t_step in range(MaxSeqLength):
+        if(debug):
+            print('time step is {}'.format(t_step))
+
+        bestNodes=BeamQueue(NumBeams)
+
+        for beam_idx in range(NumBeams):
+
+
+            if(t_step == 0):
+                logProbs, Words, NewPackedArgs = BeamNodeAdapter(PackedArguments, Trajs[beam_idx], NumBeams)
+            else:
+                logProbs, Words, NewPackedArgs = BeamNodeAdapter(PackedArguments[beam_idx], Trajs[beam_idx], NumBeams)
+                batch_size = logProbs.size(0)
+                for batch_idx in range(batch_size):
+                    if(Trajs[beam_idx][batch_idx][-1]==EOS_Token):
+                        Words[batch_idx].fill_(EOS_Token)
+                        logProbs[batch_idx].fill_(0.0)
+
+
+
+            for n_ in range(NumBeams):
+                # if(t_step > 1):
+                #     pdb.set_trace()
+                node_Candidate=BatchBeamSearchNode(NewPackedArgs[n_], Trajs[beam_idx], Words[:,n_], logProbs_Trajs[beam_idx], logProbs[:,n_])
+                node_data=[node_Candidate.getlogProbs(), node_Candidate.getNodes()]
+                batch_size = len(node_data[0])
+                node_data = [[node_data[0][y], node_data[1][y]] for y in range(batch_size)]
+                bestNodes.insert(node_data)
+
+
+        batch_size=len(bestNodes[0])
+
+        PackedArguments = [[bestNodes[x][batch_idx].getPack() for batch_idx in range(batch_size)] for x in range(NumBeams)]
+        Trajs = [[bestNodes[x][batch_idx].getTraj() for batch_idx in range(batch_size)] for x in range(NumBeams)]
+        logProbs_Trajs = [torch.cuda.FloatTensor([bestNodes[x][batch_idx].getlogProbs() for batch_idx in range(batch_size)]) for x in range(NumBeams)]
+
+        PackedArguments=[ [ [PackedArguments[beam_idx][batch_idx][arg_idx] for batch_idx in range(batch_size)] for arg_idx in range(len(template))] for beam_idx in range(NumBeams)]
+
+
+        for A_beam_PackedArguments in PackedArguments:
+            # beam // batch // argu
+            for arg_idx in range(len(template)):
+                if(template[arg_idx]==torch.Tensor or template[arg_idx] == type(None)):
+                    A_beam_PackedArguments[arg_idx]=torch.stack(A_beam_PackedArguments[arg_idx],0)
+
+    Trajs=[torch.cuda.LongTensor(Traj) for Traj in Trajs]
+    return torch.stack(Trajs,2)
         
