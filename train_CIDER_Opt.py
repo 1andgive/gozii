@@ -234,7 +234,7 @@ def main(args):
                 tmp_loss=criterion(output_logit, targets[beam_idx]).to(device)
                 tmp_loss=sectionwise_averagePool(tmp_loss,new_lengths[:,beam_idx])
                 deserved_samples= ( Reward_from_baseline[:,beam_idx] > 0 )
-                loss = torch.mean(-Reward_from_baseline[deserved_samples, beam_idx].cuda() * tmp_loss[deserved_samples])
+                loss = torch.mean(Reward_from_baseline[deserved_samples, beam_idx].cuda() * tmp_loss[deserved_samples])
 
                 decoder.zero_grad()
                 if (torch.cuda.device_count() > 1):
