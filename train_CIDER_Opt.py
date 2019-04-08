@@ -239,7 +239,7 @@ def main(args):
                 loss = loss.mean()
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(params, 0.25)
+            #torch.nn.utils.clip_grad_norm_(params, 0.25)
 
             optimizer.step()
 
