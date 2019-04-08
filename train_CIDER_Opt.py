@@ -245,8 +245,9 @@ def main(args):
             i_train += 1
             # Print log info
             if i % args.log_step == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
-                      .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item())))
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}, Cider: {:1.4f}'
+                      .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item()), score))
+                sys.stdout.flush()
 
         # Save the model checkpoints
         model_path = os.path.join(
