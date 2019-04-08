@@ -7,5 +7,5 @@
 #SBATCH --gres=gpu
 
 source activate sj_torch1.0
-python train_UNION_BUTD.py --t_method mean --num_epochs 100 --batch_size 200
+python train_CIDER_Opt.py --batch_size 512
 source deactivate
