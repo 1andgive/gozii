@@ -265,7 +265,7 @@ if __name__ == '__main__':
     parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--image_dir', type=str, default='data/resized2014', help='directory for resized images')
     parser.add_argument('--checkpoint_dir', type=str, default='model-40.pth', help='loading from this checkpoint')
-    parser.add_argument('--log_step', type=int, default=100, help='step size for prining log info')
+    parser.add_argument('--log_step', type=int, default=1, help='step size for prining log info')
 
     # Model parameters
     parser.add_argument('--embed_size', type=int, default=1000, help='dimension of word embedding vectors')
