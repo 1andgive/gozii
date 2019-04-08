@@ -142,7 +142,7 @@ def main(args):
     N = args.num_epochs * len(data_loader)
     bar = progressbar.ProgressBar(maxval=N).start()
     i_train = 0
-    cider_scorer=CiderScorer(n=4,sigma=6.0)
+
 
 
 
@@ -151,8 +151,10 @@ def main(args):
         print('epoch start')
 
 
+
         for i, (features, spatials, img_Ids) in enumerate(data_loader):
             bar.update(i_train)
+            cider_scorer = CiderScorer(n=4, sigma=6.0)
 
 
             features = features.cuda()
