@@ -1080,4 +1080,20 @@ def beam_decode(BeamNodeAdapter, PackedArguments, NumBeams, MaxSeqLength, EOS_To
 
     Trajs=[torch.cuda.LongTensor(Traj) for Traj in Trajs]
     return torch.stack(Trajs,2)
-        
+
+
+def sectionwise_averagePool(samples, section_lengths): # Per-Sample Average Pooling
+
+    assert (samples.dim() == 1)
+
+    sectionWiseList=[]
+
+    s=0
+    e=0
+    for sec_length in section_lengths:
+        e += sec_length
+        sectionWiseList.append(samples[s:e])
+        s=e+1
+
+    secWisePool=[torch.mean(section) for section in sectionWiseList]
+    return torch.stack(secWisePool,0)

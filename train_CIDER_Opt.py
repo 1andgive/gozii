@@ -6,8 +6,8 @@ import os
 import pickle
 from data_loader import BottomUp_get_loader
 from build_vocab import Vocabulary
-from model import Encoder_HieStackedCorr, DecoderTopDown
-from torch.nn.utils.rnn import pack_padded_sequence
+from model import Encoder_HieStackedCorr, DecoderTopDown, sectionwise_averagePool
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torchvision import transforms
 import pdb
 import utils_hsc as utils
@@ -101,7 +101,7 @@ def main(args):
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim)
     decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers,
                              paramH=args.paramH)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(reduction='none')
 
     if (torch.cuda.device_count() > 1):
         encoder = nn.DataParallel(encoder)
@@ -115,7 +115,7 @@ def main(args):
     # if(args.t_method == 'mean'):
     #     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     # elif(args.t_method == 'uncorr'):
-    params = list(decoder.parameters()) + list(encoder.parameters())
+    params = list(decoder.parameters())
     # params = list(decoder.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
 
@@ -135,8 +135,6 @@ def main(args):
         model_hsc_data = torch.load(model_hsc_path)
         encoder.load_state_dict(model_hsc_data['encoder_state'])
         decoder.load_state_dict(model_hsc_data['decoder_state'])
-        optimizer.load_state_dict(model_hsc_data['optimizer_state'])
-        epoch_start = model_hsc_data['epoch'] + 1
 
     if not os.path.exists(
             os.path.join(args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim))):
@@ -159,67 +157,91 @@ def main(args):
 
             features = features.cuda()
 
+            with torch.no_grad():
+                # Forward, backward and optimize
+                if (torch.cuda.device_count() > 1):
+                    features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, t_method=args.t_method,
+                                                                                           model_num=args.model_num,
+                                                                                           isUnion=args.isUnion)
+                else:
+                    features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, t_method=args.t_method,
+                                                                                    model_num=args.model_num,
+                                                                                    isUnion=args.isUnion)
 
-            # Forward, backward and optimize
-            if (torch.cuda.device_count() > 1):
-                features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, t_method=args.t_method,
-                                                                                       model_num=args.model_num,
-                                                                                       isUnion=args.isUnion)
-            else:
-                features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, t_method=args.t_method,
-                                                                                model_num=args.model_num,
-                                                                                isUnion=args.isUnion)
+                outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
 
-            outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=5, EOS_Token=vocab('<end>'))
-            # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
+                output_baseline=decoder.sample(features,union_vfeats)
+                # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
 
-            ##################################################### RL HERE ##############################################
-            caption_list=[]
-            for batch_idx in range(outputs.size(0)):
-                beam_list = []
-                for beam_idx in range(outputs.size(2)):
-                    caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
-                               range(outputs.size(1))]
-                    beam_list.append(caption)
-                beam_list=caption_refine(beam_list,NumBeams=5)
-                caption_list.append(beam_list)
+                ##################################################### RL HERE ##############################################
+                caption_list=[]
+                for batch_idx in range(outputs.size(0)):
+                    beam_list = []
+                    baseline=[]
+                    for beam_idx in range(outputs.size(2)):
+                        caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
+                                   range(outputs.size(1))]
+                        beam_list.append(caption)
+                        baseline = [vocab.idx2word[output_baseline[batch_idx][w_idx].item()] for w_idx in
+                               range(output_baseline.size(1))]
+                    beam_list=caption_refine(beam_list,NumBeams=args.NumBeams)
+                    baseline=caption_refine(baseline)
+                    beam_list.append([baseline])
+                    caption_list.append(beam_list)
 
-            # 1. CIDER REWARD
-            cider_tensor= torch.cuda.FloatTensor(outputs.size(0), outputs.size(2)).fill_(0)
-            for batch_idx in range(outputs.size(0)):
 
-                ref=overall_gts[img_Ids[batch_idx]]
+                # 1. CIDER REWARD
+                for batch_idx in range(outputs.size(0)):
 
-                for beam_idx in range(outputs.size(2)):
-                    hypo = caption_list[batch_idx][beam_idx]
-                    cider_scorer += (hypo[0], ref)
-            (score, scores) = cider_scorer.compute_score('corpus')
+                    ref=overall_gts[img_Ids[batch_idx]]
 
-            scores=torch.Tensor(scores).view(outputs.size(0), 5) # 5 <= NumBeams
-            _,s_idx=scores.max(1)
-            b_idx=range(outputs.size(0))
-            new_targets=outputs[b_idx,:,s_idx]
-            new_lengths=torch.sum(new_targets != 2 , 1)
-            _, o_idx = torch.sort(new_lengths, descending=True)
+                    for beam_idx in range(outputs.size(2)+1):
+                        hypo = caption_list[batch_idx][beam_idx]
+                        cider_scorer += (hypo[0], ref)
+                (score, scores) = cider_scorer.compute_score('corpus')
 
-            new_targets=new_targets[o_idx,:]
-            new_lengths = new_lengths[o_idx]
+                scores=torch.Tensor(scores).view(outputs.size(0), args.NumBeams + 1) # args.NumBeams <= NumBeams // 1 <=  baseline caption
+                score_baseline=scores[:,args.NumBeams]
+                score_beams=scores[:,:args.NumBeams]
+                Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
 
+                new_lengths=torch.sum(outputs != 2,1)
+                new_lengths, o_idx = torch.sort(new_lengths, dim=0, descending=True)
+
+
+
+
+                for beam_idx in range(args.NumBeams): # batch re-ordering
+                    outputs[:, :, beam_idx] = outputs[o_idx[:,beam_idx],:,beam_idx]
+                    Reward_from_baseline[:,beam_idx]=Reward_from_baseline[o_idx[:,beam_idx],beam_idx]
+
+            ########################################## # 2. POLICY GRADIENT #############################################
+
+            targets=[pack_padded_sequence(outputs[:, :, beam_idx], new_lengths[:, beam_idx], batch_first=True)[0] for beam_idx in range(args.NumBeams)]  # NEW GT from beam
+            loss= []
+            for beam_idx in range(args.NumBeams):
+                output_logit=decoder(features[o_idx[:, beam_idx], :, :], features_encoded[o_idx[:, beam_idx], :],
+                        union_vfeats[o_idx[:, beam_idx], :],
+                        outputs[:, :, beam_idx], new_lengths[:, beam_idx])
+
+                output_logit = \
+                pack_padded_sequence(output_logit, new_lengths[:, beam_idx], batch_first=True)[
+                    0]  # new logit for optimization
+
+
+                tmp_loss=criterion(output_logit, targets[beam_idx]).to(device)
+                tmp_loss=sectionwise_averagePool(tmp_loss,new_lengths[:,beam_idx])
+                loss.append(torch.mean(-Reward_from_baseline[:, beam_idx].cuda() * tmp_loss))
+
+            loss=torch.stack(loss,0)
+            loss=torch.mean(loss)
             pdb.set_trace()
 
 
 
-            # 2. POLICY GRADIENT
-
-
-
-            ##################################################### RL HERE ##############################################
-
-
-            loss = criterion(outputs, targets)
+            #############################################################################################################
 
             decoder.zero_grad()
-            encoder.zero_grad()
             if (torch.cuda.device_count() > 1):
                 loss = loss.mean()
             loss.backward()
@@ -262,6 +284,7 @@ if __name__ == '__main__':
     parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--NumBeams', type=int, default=5)
     parser.add_argument('--isUnion', type=bool, default=False)
     args = parser.parse_args()
     print(args)
