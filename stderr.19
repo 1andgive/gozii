@@ -1,6 +1,0 @@
-  0% |                                                                                                                   |Traceback (most recent call last):
-  File "train_UNION_BUTD.py", line 184, in <module>
-    main(args)
-  File "train_UNION_BUTD.py", line 149, in main
-    sys.stdout.flush()
-NameError: name 'sys' is not defined
