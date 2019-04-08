@@ -978,17 +978,36 @@ class BeamQueue:
         if(self.__len__() >= self.maxSize):
 
             batch_size = len(data)
+            q_idx=0
+
             for batch_idx in range(batch_size):
-                if(self.items[-1][batch_idx][0] < data[batch_idx][0]):
-                    self.items[-1][batch_idx]=data[batch_idx]
+
+                tmp_Traj = [tl[batch_idx][1].getTraj() for tl in self.items]  # if no duplicate trajectory
+                data_tmp_Traj=data[batch_idx][1].getTraj()
+                if (data_tmp_Traj in tmp_Traj):
+                    t_idx=tmp_Traj.index(data_tmp_Traj)
+                    if(self.items[t_idx][batch_idx][0] < data[batch_idx][0]):
+                        self.items[t_idx][batch_idx][0]=-9999 # if duplicate trajectory and new data has higher probability, then remove the old node from the queue
+
+                for que_idx in range(self.maxSize):
+                    if (self.items[que_idx][batch_idx][0] < data[batch_idx][0]):
+                        for tmp_que_idx in range(self.maxSize-2, que_idx-1, -1): # prepare for new order
+                            self.items[tmp_que_idx+1][batch_idx]=self.items[tmp_que_idx][batch_idx]
+                        q_idx=que_idx # replace based on probability order
+                        break
+                    else:
+                        q_idx=que_idx+1
+                if(q_idx < self.maxSize): # update index is in range
+                    self.items[q_idx][batch_idx] = data[batch_idx]
+
         else:
             self.items.append(data) # data=> batch probability
             batch_size=len(data)
             queue_len=self.__len__()
 
             beam_data=[[self.items[x][y] for x in range(queue_len)] for y in range(batch_size)]
-            for a_beam in beam_data:
-                a_beam=sorted(a_beam, key=lambda x: int(x[0]), reverse=True)
+            for beam_idx in range(len(beam_data)):
+                beam_data[beam_idx]=sorted(beam_data[beam_idx], key=lambda x: int(x[0]), reverse=True)
             self.items=[[[beam_data[y][x][0],
                           beam_data[y][x][1]] for y in range(batch_size)] for x in range(queue_len)]
 
@@ -1027,8 +1046,10 @@ def beam_decode(BeamNodeAdapter, PackedArguments, NumBeams, MaxSeqLength, EOS_To
                 batch_size = logProbs.size(0)
                 for batch_idx in range(batch_size):
                     if(Trajs[beam_idx][batch_idx][-1]==EOS_Token):
-                        Words[batch_idx].fill_(EOS_Token)
-                        logProbs[batch_idx].fill_(0.0)
+                        Words[batch_idx].fill_(-1)
+                        logProbs[batch_idx].fill_(-9999)
+                        Words[batch_idx][0]=EOS_Token
+                        logProbs[batch_idx][0]=0.0
 
 
 

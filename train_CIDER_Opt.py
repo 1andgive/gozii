@@ -194,6 +194,17 @@ def main(args):
                     hypo = caption_list[batch_idx][beam_idx]
                     cider_scorer += (hypo[0], ref)
             (score, scores) = cider_scorer.compute_score('corpus')
+
+            scores=torch.Tensor(scores).view(outputs.size(0), 5) # 5 <= NumBeams
+            _,s_idx=scores.max(1)
+            b_idx=range(outputs.size(0))
+            new_targets=outputs[b_idx,:,s_idx]
+            new_lengths=torch.sum(new_targets != 2 , 1)
+            _, o_idx = torch.sort(new_lengths, descending=True)
+
+            new_targets=new_targets[o_idx,:]
+            new_lengths = new_lengths[o_idx]
+
             pdb.set_trace()
 
 
