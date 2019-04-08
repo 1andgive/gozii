@@ -217,9 +217,9 @@ def main(args):
 
             ########################################## # 2. POLICY GRADIENT #############################################
 
-            targets=[pack_padded_sequence(outputs[:, :, beam_idx], new_lengths[:, beam_idx], batch_first=True)[0] for beam_idx in range(args.NumBeams)]  # NEW GT from beam
-            loss= []
-            for beam_idx in range(args.NumBeams):
+                targets=[pack_padded_sequence(outputs[:, :, beam_idx], new_lengths[:, beam_idx], batch_first=True)[0] for beam_idx in range(args.NumBeams)]  # NEW GT from beam
+
+            for beam_idx in range(args.NumBeams): # single-agent RL!!! each beam is an output from an agent
                 output_logit=decoder(features[o_idx[:, beam_idx], :, :], features_encoded[o_idx[:, beam_idx], :],
                         union_vfeats[o_idx[:, beam_idx], :],
                         outputs[:, :, beam_idx], new_lengths[:, beam_idx])
@@ -231,25 +231,18 @@ def main(args):
 
                 tmp_loss=criterion(output_logit, targets[beam_idx]).to(device)
                 tmp_loss=sectionwise_averagePool(tmp_loss,new_lengths[:,beam_idx])
-                loss.append(torch.mean(-Reward_from_baseline[:, beam_idx].cuda() * tmp_loss))
+                loss = torch.mean(-Reward_from_baseline[:, beam_idx].cuda() * tmp_loss)
 
-            loss=torch.stack(loss,0)
-            loss=torch.mean(loss)
-            pdb.set_trace()
+                decoder.zero_grad()
+                if (torch.cuda.device_count() > 1):
+                    loss = loss.mean()
+                loss.backward()
 
-
+                optimizer.step()
 
             #############################################################################################################
 
-            decoder.zero_grad()
-            if (torch.cuda.device_count() > 1):
-                loss = loss.mean()
-            loss.backward()
-
-            optimizer.step()
-
             i_train += 1
-
             # Print log info
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
