@@ -206,42 +206,40 @@ def main(args):
                 score_baseline=scores[:,args.NumBeams]
                 score_beams=scores[:,:args.NumBeams]
                 Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
+                Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
+                outputs=outputs[range(outputs.size(0)),  :, best_beam]
 
-                new_lengths=torch.sum(outputs != 2,1)
-                new_lengths, o_idx = torch.sort(new_lengths, dim=0, descending=True)
+                new_length=torch.sum(outputs != 2,1)
+                new_length, o_idx = torch.sort(new_length, dim=0, descending=True) # batch re-ordering
 
 
-
-
-                for beam_idx in range(args.NumBeams): # batch re-ordering
-                    outputs[:, :, beam_idx] = outputs[o_idx[:,beam_idx],:,beam_idx]
-                    Reward_from_baseline[:,beam_idx]=Reward_from_baseline[o_idx[:,beam_idx],beam_idx]
+                outputs = outputs[o_idx]
+                Reward_from_baseline=Reward_from_baseline[o_idx]
 
             ########################################## # 2. POLICY GRADIENT #############################################
 
-                targets=[pack_padded_sequence(outputs[:, :, beam_idx], new_lengths[:, beam_idx], batch_first=True)[0] for beam_idx in range(args.NumBeams)]  # NEW GT from beam
+                target=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
 
-            for beam_idx in range(args.NumBeams): # single-agent RL!!! each beam is an output from an agent
-                output_logit=decoder(features[o_idx[:, beam_idx], :, :], features_encoded[o_idx[:, beam_idx], :],
-                        union_vfeats[o_idx[:, beam_idx], :],
-                        outputs[:, :, beam_idx], new_lengths[:, beam_idx])
+            # single-agent RL!!! only use the best-beam!!
+            output_logit=decoder(features[o_idx], features_encoded[o_idx],
+                    union_vfeats[o_idx], outputs, new_length)
 
-                output_logit = \
-                pack_padded_sequence(output_logit, new_lengths[:, beam_idx], batch_first=True)[
-                    0]  # new logit for optimization
+            output_logit = \
+            pack_padded_sequence(output_logit, new_length, batch_first=True)[
+                0]  # new logit for optimization
 
 
-                tmp_loss=criterion(output_logit, targets[beam_idx]).to(device)
-                tmp_loss=sectionwise_averagePool(tmp_loss,new_lengths[:,beam_idx])
-                deserved_samples= ( Reward_from_baseline[:,beam_idx] > 0 )
-                loss = torch.mean(Reward_from_baseline[deserved_samples, beam_idx].cuda() * tmp_loss[deserved_samples])
+            tmp_loss=criterion(output_logit, target).to(device)
+            tmp_loss=sectionwise_averagePool(tmp_loss,new_length)
+            deserved_samples= ( Reward_from_baseline > 0 )
+            loss = torch.mean(-Reward_from_baseline[deserved_samples].cuda() * tmp_loss[deserved_samples])
 
-                decoder.zero_grad()
-                if (torch.cuda.device_count() > 1):
-                    loss = loss.mean()
-                loss.backward()
+            decoder.zero_grad()
+            if (torch.cuda.device_count() > 1):
+                loss = loss.mean()
+            loss.backward()
 
-                optimizer.step()
+            optimizer.step()
 
             #############################################################################################################
 
