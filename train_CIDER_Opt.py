@@ -170,55 +170,57 @@ def main(args):
                                                                                     model_num=args.model_num,
                                                                                     isUnion=args.isUnion)
 
-                outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
+            outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
 
-                output_baseline=decoder.sample(features,union_vfeats)
-                # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
+            output_baseline=decoder.sample(features,union_vfeats)
+            # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
 
-                ##################################################### RL HERE ##############################################
-                caption_list=[]
-                for batch_idx in range(outputs.size(0)):
-                    beam_list = []
-                    baseline=[]
-                    for beam_idx in range(outputs.size(2)):
-                        caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
-                                   range(outputs.size(1))]
-                        beam_list.append(caption)
-                        baseline = [vocab.idx2word[output_baseline[batch_idx][w_idx].item()] for w_idx in
-                               range(output_baseline.size(1))]
-                    beam_list=caption_refine(beam_list,NumBeams=args.NumBeams)
-                    baseline=caption_refine(baseline)
-                    beam_list.append([baseline])
-                    caption_list.append(beam_list)
-
-
-                # 1. CIDER REWARD
-                for batch_idx in range(outputs.size(0)):
-
-                    ref=overall_gts[img_Ids[batch_idx]]
-
-                    for beam_idx in range(outputs.size(2)+1):
-                        hypo = caption_list[batch_idx][beam_idx]
-                        cider_scorer += (hypo[0], ref)
-                (score, scores) = cider_scorer.compute_score('corpus')
-
-                scores=torch.Tensor(scores).view(outputs.size(0), args.NumBeams + 1) # args.NumBeams <= NumBeams // 1 <=  baseline caption
-                score_baseline=scores[:,args.NumBeams]
-                score_beams=scores[:,:args.NumBeams]
-                Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
-                Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
-                outputs=outputs[range(outputs.size(0)),  :, best_beam]
-
-                new_length=torch.sum(outputs != 2,1)
-                new_length, o_idx = torch.sort(new_length, dim=0, descending=True) # batch re-ordering
+            ##################################################### RL HERE ##############################################
+            caption_list=[]
+            for batch_idx in range(outputs.size(0)):
+                beam_list = []
+                baseline=[]
+                for beam_idx in range(outputs.size(2)):
+                    caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
+                               range(outputs.size(1))]
+                    beam_list.append(caption)
+                    baseline = [vocab.idx2word[output_baseline[batch_idx][w_idx].item()] for w_idx in
+                           range(output_baseline.size(1))]
+                beam_list=caption_refine(beam_list,NumBeams=args.NumBeams)
+                baseline=caption_refine(baseline)
+                beam_list.append([baseline])
+                caption_list.append(beam_list)
 
 
-                outputs = outputs[o_idx]
-                Reward_from_baseline=Reward_from_baseline[o_idx]
+            # 1. CIDER REWARD
+            for batch_idx in range(outputs.size(0)):
+
+                ref=overall_gts[img_Ids[batch_idx]]
+
+                for beam_idx in range(outputs.size(2)+1):
+                    hypo = caption_list[batch_idx][beam_idx]
+                    cider_scorer += (hypo[0], ref)
+            (score, scores) = cider_scorer.compute_score('corpus')
+
+            scores=torch.Tensor(scores).view(outputs.size(0), args.NumBeams + 1) # args.NumBeams <= NumBeams // 1 <=  baseline caption
+            score_baseline=scores[:,args.NumBeams]
+            score_beams=scores[:,:args.NumBeams]
+            Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
+            Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
+            outputs=outputs[range(outputs.size(0)),  :, best_beam]
+
+
+
+            new_length=torch.sum(outputs != 2,1)
+            new_length, o_idx = torch.sort(new_length, dim=0, descending=True) # batch re-ordering
+
+
+            outputs = outputs[o_idx]
+            Reward_from_baseline=Reward_from_baseline[o_idx]
 
             ########################################## # 2. POLICY GRADIENT #############################################
 
-                target=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
+            target=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
 
             # single-agent RL!!! only use the best-beam!!
             output_logit=decoder(features[o_idx], features_encoded[o_idx],
@@ -239,7 +241,7 @@ def main(args):
                 loss = loss.mean()
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(params, 0.25)
+            torch.nn.utils.clip_grad_norm_(params, 0.025)
 
             optimizer.step()
 
