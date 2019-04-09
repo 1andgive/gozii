@@ -234,7 +234,6 @@ def main(args):
             tmp_loss=criterion(output_logit, target).to(device)
             tmp_loss=sectionwise_averagePool(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )
-            pdb.set_trace()
             loss = torch.mean(Reward_from_baseline[deserved_samples].cuda() * tmp_loss[deserved_samples])
 
             decoder.zero_grad()
