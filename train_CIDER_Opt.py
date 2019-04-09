@@ -239,7 +239,7 @@ def main(args):
                 loss = loss.mean()
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(params, 0.25)
+            torch.nn.utils.clip_grad_norm_(params, args.grad_clip)
 
             optimizer.step()
 
@@ -255,7 +255,7 @@ def main(args):
         # Save the model checkpoints
         model_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
-            'model-{}-CiderOpt-GradClip.pth'.format(epoch + 1))
+            'model-{}-CiderOpt-GradClip-{}.pth'.format(epoch + 1, args.grad_clip))
         utils.save_model(model_path, encoder, decoder, epoch, optimizer)
 
 
@@ -278,6 +278,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.00005)
+    parser.add_argument('--grad_clip', type=float, default=0.25)
     parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
