@@ -255,7 +255,7 @@ def main(args):
         # Save the model checkpoints
         model_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
-            'model-{}-CiderOpt.pth'.format(epoch + 1))
+            'model-{}-CiderOpt-GradClip.pth'.format(epoch + 1))
         utils.save_model(model_path, encoder, decoder, epoch, optimizer)
 
 
