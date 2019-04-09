@@ -232,6 +232,7 @@ def main(args):
             tmp_loss=criterion(output_logit, target).to(device)
             tmp_loss=sectionwise_averagePool(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )
+            pdb.set_trace()
             loss = torch.mean(Reward_from_baseline[deserved_samples].cuda() * tmp_loss[deserved_samples])
 
             decoder.zero_grad()
@@ -277,7 +278,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=40)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=0)
-    parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--learning_rate', type=float, default=0.00005)
     parser.add_argument('--t_method', type=str, default='mean')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
