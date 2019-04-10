@@ -148,7 +148,7 @@ def main(args):
     bar = progressbar.ProgressBar(maxval=N).start()
     i_train = 0
 
-
+    outputs_cache={}
 
 
     for epoch in range(args.num_epochs):
@@ -164,6 +164,7 @@ def main(args):
 
             features = features.cuda()
 
+
             with torch.no_grad():
                 # Forward, backward and optimize
                 if (torch.cuda.device_count() > 1):
@@ -175,7 +176,17 @@ def main(args):
                                                                                     model_num=args.model_num,
                                                                                     isUnion=args.isUnion)
 
-                outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
+                if (epoch % args.SelfCriticFrequency == 0):  # periodically update
+
+                    outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
+                    for img_Id, output in zip(img_Ids, outputs):
+                        outputs_cache[img_Id]=output
+                    continue
+
+                else:
+
+                    outputs = torch.stack([outputs_cache[img_Id] for img_Id in img_Ids],0)
+
 
                 output_baseline=decoder.sample(features,union_vfeats)
                 # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
@@ -302,6 +313,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--NumBeams', type=int, default=5)
     parser.add_argument('--isUnion', type=bool, default=False)
+    parser.add_argument('--SelfCriticFrequency', type=int, default=5)
     args = parser.parse_args()
     print(args)
     main(args)
