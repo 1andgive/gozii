@@ -217,11 +217,7 @@ def main(args):
                 outputs=outputs[range(outputs.size(0)),  :, best_beam]
 
                 new_length=torch.sum(outputs != 2,1)
-                new_length, o_idx = torch.sort(new_length, dim=0, descending=True) # batch re-ordering
 
-
-                outputs = outputs[o_idx]
-                Reward_from_baseline=Reward_from_baseline[o_idx]
 
 
 
@@ -230,8 +226,13 @@ def main(args):
                 #target_packed=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
 
             # single-agent RL!!! only use the best-beam!!
-            output_logit=decoder(features[o_idx], features_encoded[o_idx],
-                    union_vfeats[o_idx], outputs, new_length)
+            output_logit=decoder(features, features_encoded,
+                    union_vfeats, outputs, new_length)
+
+            new_length, o_idx = torch.sort(new_length, dim=0, descending=True)  # batch re-ordering
+            outputs = outputs[o_idx]
+            Reward_from_baseline = Reward_from_baseline[o_idx]
+            output_logit=output_logit[o_idx]
 
             output_logit = \
             pack_padded_sequence(output_logit, new_length, batch_first=True)[
