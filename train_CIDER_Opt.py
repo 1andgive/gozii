@@ -23,6 +23,11 @@ from cider.cider import CiderScorer
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def gen_mask(idx, batch_size, label_size, maxSeqLength=20):
+    label_from_vqa=torch.cuda.FloatTensor(batch_size, maxSeqLength, label_size).fill_(0)
+    for seq in range(maxSeqLength):
+        label_from_vqa[range(batch_size),seq,idx[:,seq]]=1
+    return label_from_vqa
 
 def caption_refine(explains, NumBeams=1, model_num=1):
 
@@ -101,12 +106,12 @@ def main(args):
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim)
     decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers,
                              paramH=args.paramH)
-    criterion = nn.CrossEntropyLoss(reduction='none')
+
+    SoftMax_=nn.Softmax(dim=1)
 
     if (torch.cuda.device_count() > 1):
         encoder = nn.DataParallel(encoder)
         decoder = nn.DataParallel(decoder)
-        criterion = nn.DataParallel(criterion)
     encoder.to(device)
     decoder.to(device)
 
@@ -222,7 +227,7 @@ def main(args):
 
             ########################################## # 2. POLICY GRADIENT #############################################
 
-                target=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
+                #target_packed=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
 
             # single-agent RL!!! only use the best-beam!!
             output_logit=decoder(features[o_idx], features_encoded[o_idx],
@@ -233,7 +238,15 @@ def main(args):
                 0]  # new logit for optimization
 
 
-            tmp_loss=criterion(output_logit, target).to(device)
+            # tmp_loss=criterion(output_logit, target).to(device)
+
+            mask = gen_mask(outputs, outputs.size(0), output_logit.size(1))
+            mask = pack_padded_sequence(mask, new_length, batch_first=True)[0]
+            output_logit=SoftMax_(output_logit)
+            output_logit=torch.log(output_logit)
+            tmp_loss = - output_logit * mask
+            tmp_loss = torch.sum(tmp_loss, 1) / torch.sum(mask, 1)
+
             tmp_loss=sectionwise_Sum(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )
             loss = torch.mean(Reward_from_baseline[deserved_samples].cuda() * tmp_loss[deserved_samples])
