@@ -154,7 +154,7 @@ def main(args):
     for epoch in range(args.num_epochs):
         # for i, (images, captions, lengths) in enumerate(data_loader):
         print('epoch start')
-
+        tmp_len=0
 
 
         for i, (features, spatials, img_Ids) in enumerate(data_loader):
@@ -181,6 +181,10 @@ def main(args):
                     outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
                     for img_Id, output in zip(img_Ids, outputs):
                         outputs_cache[img_Id]=output
+                    tmp_len += len(img_Ids)
+                    if i % args.log_step == 0:
+                        print(' {} of {} caption updated'.format(tmp_len, len(overall_gts)))
+                        sys.stdout.flush()
                     continue
 
                 else:
