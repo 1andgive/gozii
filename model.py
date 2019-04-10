@@ -1082,7 +1082,7 @@ def beam_decode(BeamNodeAdapter, PackedArguments, NumBeams, MaxSeqLength, EOS_To
     return torch.stack(Trajs,2)
 
 
-def sectionwise_averagePool(samples, section_lengths): # Per-Sample Average Pooling
+def sectionwise_Sum(samples, section_lengths): # Per-Sample Average Pooling
 
     assert (samples.dim() == 1)
 
@@ -1095,5 +1095,5 @@ def sectionwise_averagePool(samples, section_lengths): # Per-Sample Average Pool
         sectionWiseList.append(samples[s:e])
         s=e+1
 
-    secWisePool=[torch.mean(section) for section in sectionWiseList]
+    secWisePool=[torch.sum(section) for section in sectionWiseList]
     return torch.stack(secWisePool,0)

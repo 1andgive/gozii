@@ -6,7 +6,7 @@ import os
 import pickle
 from data_loader import BottomUp_get_loader
 from build_vocab import Vocabulary
-from model import Encoder_HieStackedCorr, DecoderTopDown, sectionwise_averagePool
+from model import Encoder_HieStackedCorr, DecoderTopDown, sectionwise_Sum
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torchvision import transforms
 import pdb
@@ -206,6 +206,8 @@ def main(args):
                 score_baseline=scores[:,args.NumBeams]
                 score_beams=scores[:,:args.NumBeams]
                 Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
+
+
                 Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
                 outputs=outputs[range(outputs.size(0)),  :, best_beam]
 
@@ -215,6 +217,8 @@ def main(args):
 
                 outputs = outputs[o_idx]
                 Reward_from_baseline=Reward_from_baseline[o_idx]
+
+
 
             ########################################## # 2. POLICY GRADIENT #############################################
 
@@ -230,7 +234,7 @@ def main(args):
 
 
             tmp_loss=criterion(output_logit, target).to(device)
-            tmp_loss=sectionwise_averagePool(tmp_loss,new_length)
+            tmp_loss=sectionwise_Sum(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )
             loss = torch.mean(Reward_from_baseline[deserved_samples].cuda() * tmp_loss[deserved_samples])
 
