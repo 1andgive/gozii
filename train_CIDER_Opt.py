@@ -282,7 +282,7 @@ def main(args):
             # Print log info
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}, Cider: {:1.4f}'
-                      .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item()), score))
+                      .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item()), torch.mean(score_baseline)))
                 sys.stdout.flush()
 
         # Save the model checkpoints
