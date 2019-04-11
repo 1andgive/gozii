@@ -123,7 +123,7 @@ def main(args):
                 features_encoded,union_vfeats, features, betas=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
             else:
                 features_encoded,union_vfeats, features, betas=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
-
+            pdb.set_trace()
             outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
             #print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
             #pdb.set_trace()
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int , default=1, help='number of layers in lstm')
     
     parser.add_argument('--num_epochs', type=int, default=40)
-    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--t_method', type=str, default='uncorr')

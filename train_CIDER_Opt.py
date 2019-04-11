@@ -150,6 +150,8 @@ def main(args):
 
     outputs_cache={}
 
+    EOS_Token_=vocab('<end>')
+    SOS_Token_=vocab('<start>')
 
     for epoch in range(args.num_epochs):
         # for i, (images, captions, lengths) in enumerate(data_loader):
@@ -176,26 +178,40 @@ def main(args):
                                                                                     model_num=args.model_num,
                                                                                     isUnion=args.isUnion)
 
-                if (epoch % args.SelfCriticFrequency == 0):  # periodically update
+                1. ############################################ Q - V approach #########################################
 
-                    outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
-                    for img_Id, output in zip(img_Ids, outputs):
-                        outputs_cache[img_Id]=output
-                    tmp_len += len(img_Ids)
-                    if i % args.log_step == 0:
-                        print(' {} of {} caption updated'.format(tmp_len, len(overall_gts)))
-                        sys.stdout.flush()
-                    continue
+                # if (epoch % args.SelfCriticFrequency == 0):  # periodically update
+                #
+                #     outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
+                #     for img_Id, output in zip(img_Ids, outputs):
+                #         outputs_cache[img_Id]=output
+                #     tmp_len += len(img_Ids)
+                #     if i % args.log_step == 0:
+                #         print(' {} of {} caption updated'.format(tmp_len, len(overall_gts)))
+                #         sys.stdout.flush()
+                #     continue
+                #
+                # else:
+                #
+                #     outputs = torch.stack([outputs_cache[img_Id] for img_Id in img_Ids],0)
 
-                else:
+                1. #################################### OR POLICY GRADIENT #############################################
 
-                    outputs = torch.stack([outputs_cache[img_Id] for img_Id in img_Ids],0)
+                outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=EOS_Token_)
+
+                1. #####################################################################################################
+
+
+
+
+
+
 
 
                 output_baseline=decoder.sample(features,union_vfeats)
                 # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
 
-                ##################################################### RL HERE ##############################################
+                2. ################################################## RL HERE ##############################################
                 caption_list=[]
                 for batch_idx in range(outputs.size(0)):
                     beam_list = []
@@ -231,21 +247,23 @@ def main(args):
                 Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
                 outputs=outputs[range(outputs.size(0)),  :, best_beam]
 
-                new_length=torch.sum(outputs != 2,1)
+                captions=torch.cat( (torch.cuda.LongTensor(outputs.size(0), 1).fill_(SOS_Token_), outputs) , 1)
+                targets=outputs
+                new_length=torch.sum(captions != 2,1)
 
 
 
 
-            ########################################## # 2. POLICY GRADIENT #############################################
+            3. ####################################### # 2. POLICY GRADIENT #############################################
 
                 #target_packed=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
 
             # single-agent RL!!! only use the best-beam!!
             output_logit=decoder(features, features_encoded,
-                    union_vfeats, outputs, new_length)
+                    union_vfeats, captions, new_length)
 
             new_length, o_idx = torch.sort(new_length, dim=0, descending=True)  # batch re-ordering
-            outputs = outputs[o_idx]
+            targets = targets[o_idx]
             Reward_from_baseline = Reward_from_baseline[o_idx]
             output_logit=output_logit[o_idx]
 
@@ -256,14 +274,14 @@ def main(args):
 
             # tmp_loss=criterion(output_logit, target).to(device)
 
-            mask = gen_mask(outputs, outputs.size(0), output_logit.size(1))
+            mask = gen_mask(targets, targets.size(0), output_logit.size(1))
             mask = pack_padded_sequence(mask, new_length, batch_first=True)[0]
             output_logit=SoftMax_(output_logit)
             output_logit=torch.log(output_logit)
             tmp_loss = - output_logit * mask
             tmp_loss = torch.sum(tmp_loss, 1) / torch.sum(mask, 1)
 
-            tmp_loss=sectionwise_Sum(tmp_loss,new_length)
+            tmp_loss = sectionwise_Sum(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )
             loss = torch.mean(Reward_from_baseline[deserved_samples].cuda() * tmp_loss[deserved_samples])
 
@@ -276,7 +294,7 @@ def main(args):
 
             optimizer.step()
 
-            #############################################################################################################
+            3. ##########################################################################################################
 
             i_train += 1
             # Print log info
