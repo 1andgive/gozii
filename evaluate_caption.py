@@ -1,3 +1,4 @@
+## EVALUATE ON COCO DATASET
 
 import os
 import sys
@@ -50,25 +51,27 @@ def parse_args():
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
     parser.add_argument('--epoch', type=int, default=12)
-    parser.add_argument('--hsc_epoch', type=int, default=16)
-    parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
-    parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
-    parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
-    parser.add_argument('--vocab_path', type=str, default='data/vocab_threshold_0.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--hsc_epoch', type=int, default=0)
+    parser.add_argument('--hsc_path', type=str, default='models_BUTD_36/standard_vocab/', help='path for resuming hsc pre-trained models')
+    parser.add_argument('--embed_size', type=int, default=1000, help='dimension of word embedding vectors')
+    parser.add_argument('--hidden_size', type=int, default=1000, help='dimension of lstm hidden states')
+    #parser.add_argument('--vocab_path', type=str, default='data/vocab_threshold_0.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl',
+                        help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_caption/')
     parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
-    parser.add_argument('--t_method', type=str, default='uncorr') # mean, uncorr
+    parser.add_argument('--t_method', type=str, default='mean') # mean, uncorr
     parser.add_argument('--s_method', type=str, default='BestOne') # BestOne, BeamSearch
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
     parser.add_argument('--isBUTD', type=bool, default=False)
     parser.add_argument('--isUnion', type=bool, default=False)
     parser.add_argument('--isFeeding', type=bool, default=False)
-    parser.add_argument('--paramH', type=int, default=256, help='dimension of lstm hidden states')
+    parser.add_argument('--paramH', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--result_json_path', type=str, default='test_json/', help='saving path for captioning json')
     parser.add_argument('--test_target', type=str, default='COCO', help='COCO or KARPATHY')
-    parser.add_argument('--method', type=str, default='UNI&BUTD(NO CIDER)', help='applied method')
+    parser.add_argument('--method', type=str, default='mean_butd_fix36_cider0', help='applied method')
     args = parser.parse_args()
     return args
 
@@ -143,6 +146,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             for b_ in range(batch_size):
                 beam_list[b_] = caption_refine(beam_list[b_], NumBeams=5)
 
+
         captions_list.extend(beam_list)
         img_id_list.extend(img_ids)
 
@@ -150,7 +154,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     result_json=make_json(captions_list, img_id_list)
 
     with open(args.result_json_path + '/captions_%s_%s_results.json' \
-              % (args.split, args.method), 'w') as f:
+              % (args.split, args.method + str(args.hsc_epoch)), 'w') as f:
 
         json.dump(result_json, f)
 
@@ -239,14 +243,15 @@ if __name__ == '__main__':
                                  paramH=args.paramH).to(device)
         args.save_fig_loc=args.save_fig_loc+args.hsc_path
         #args.hsc_path='models_BUTD/'
-        model_file='model-{}.pth'.format(args.hsc_epoch)
+        model_file='model-{}-CiderOpt-GradClip-0.25.pth'.format(args.hsc_epoch)
     else:
 
         decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
         if (args.t_method == 'mean'):
-            model_file = 'model-{}.pth'.format(args.hsc_epoch)
+            model_file = 'model-{}'.format(args.hsc_epoch)
         else:
-            model_file = 'model-{}-400.pth'.format(args.hsc_epoch)
+            #model_file = 'model-{}-400.pth'.format(args.hsc_epoch)
+            model_file = 'model-{}-400'.format(args.hsc_epoch)
 
     model = None
 

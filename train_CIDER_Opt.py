@@ -100,6 +100,7 @@ def main(args):
                                       transform, args.batch_size,
                                       shuffle=True, num_workers=args.num_workers)
 
+
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
 
     # Build the models
@@ -228,6 +229,7 @@ def main(args):
                     caption_list.append(beam_list)
 
 
+
                 # 1. CIDER REWARD
                 for batch_idx in range(outputs.size(0)):
 
@@ -242,6 +244,8 @@ def main(args):
                 score_baseline=scores[:,args.NumBeams]
                 score_beams=scores[:,:args.NumBeams]
                 Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
+
+                pdb.set_trace()
 
 
                 Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
