@@ -683,7 +683,7 @@ class DecoderTopDown(nn.Module):
             # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
 
             #prevent duplicate elements in a list
-            _, idx_outs = max_k_NoDuplicate(valid_outputs, sampled_ids, dim_=1,
+            _, idx_outs = max_k(valid_outputs, dim_=1,
                                                      k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
             predicted=idx_outs[:,0]
 
