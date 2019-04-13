@@ -56,7 +56,8 @@ def main(args):
     encoder = Encoder_HieStackedCorr(args.embed_size,2048, model_num=args.model_num, LRdim=args.LRdim)
     decoder = DecoderTopDown(args.embed_size, 2048, args.hidden_size, args.hidden_size, len(vocab), args.num_layers, paramH=args.paramH)
     criterion = nn.CrossEntropyLoss().to(device)
-    
+    criterion_dis = nn.MultiLabelMarginLoss().to(device)
+
     if(torch.cuda.device_count() > 1):
         encoder=nn.DataParallel(encoder)
         decoder=nn.DataParallel(decoder)
@@ -111,7 +112,8 @@ def main(args):
             #     targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
             lengths[:] = [x - 1 for x in lengths]  # 어차피 <sos> 나 <eos> 둘중 하나는 양쪽 (target, input)에서 제거된다.
-            targets = pack_padded_sequence(captions[:, 1:], lengths, batch_first=True)[0]
+            targets_tmp=captions[:, 1:]
+            targets = pack_padded_sequence(targets_tmp, lengths, batch_first=True)[0]
 
             features = features.cuda()
             captions = captions.cuda()
@@ -123,12 +125,22 @@ def main(args):
                 features_encoded,union_vfeats, features, betas=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
             else:
                 features_encoded,union_vfeats, features, betas=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
-            pdb.set_trace()
-            outputs = decoder(features, features_encoded, union_vfeats, captions, lengths)
+
+            outputs, mid_outs = decoder(features, features_encoded, union_vfeats, captions, lengths)
             #print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
             #pdb.set_trace()
+            mid_outs=mid_outs.max(1)[0]
+
+            targets_d = torch.zeros(mid_outs.size(0), mid_outs.size(1)).to(device)
+            targets_d.fill_(-1)
+
+            for length in lengths:
+                targets_d[:, :length - 1] = targets_tmp[:, :length - 1]
+
             outputs=pack_padded_sequence(outputs,lengths,batch_first=True)[0]
-            loss = criterion(outputs, targets)
+            loss_ce = criterion(outputs, targets)
+            loss_dis = criterion_dis(mid_outs, targets_d.long())
+            loss = loss_ce + (10 * loss_dis)
 
             decoder.zero_grad()
             encoder.zero_grad()

@@ -263,7 +263,7 @@ def main(args):
                 #target_packed=pack_padded_sequence(outputs, new_length, batch_first=True)[0]  # NEW GT from beam
 
             # single-agent RL!!! only use the best-beam!!
-            output_logit=decoder(features, features_encoded,
+            output_logit, _=decoder(features, features_encoded,
                     union_vfeats, captions, new_length)
 
             new_length, o_idx = torch.sort(new_length, dim=0, descending=True)  # batch re-ordering
