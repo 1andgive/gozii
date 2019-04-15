@@ -245,8 +245,6 @@ def main(args):
                 score_beams=scores[:,:args.NumBeams]
                 Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
 
-                pdb.set_trace()
-
 
                 Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
                 outputs=outputs[range(outputs.size(0)),  :, best_beam]
