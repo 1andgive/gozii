@@ -505,6 +505,8 @@ def max_k(inputTensor,dim_=0,k=1):
     return outputTensor, idx_att
 
 def max_k_NoDuplicate(inputTensor, sample_ids,dim_=0,k=1):
+    if(len(sample_ids) > 0):
+        sample_ids=[sample_ids[-1]]
     word_domain_size=len(sample_ids)+k
 
     Probs, idx_outs = max_k(inputTensor, dim_=dim_, k=word_domain_size)
@@ -592,9 +594,9 @@ class DecoderTopDown(nn.Module):
         self.softmax = nn.Softmax(dim=1)
         self.paramH=paramH
 
-        self.linear_Wva=weight_norm(nn.Linear(vdim,self.paramH, bias=False))
-        self.linear_Wha = weight_norm(nn.Linear(hidden_size1,self.paramH, bias=False))
-        self.linear_wa = weight_norm(nn.Linear(self.paramH, 1, bias=False))
+        self.linear_Wva=weight_norm(nn.Linear(vdim,self.paramH ))
+        self.linear_Wha = weight_norm(nn.Linear(hidden_size1,self.paramH ))
+        self.linear_wa = weight_norm(nn.Linear(self.paramH, 1 ))
         self.linear = weight_norm(nn.Linear(hidden_size2, vocab_size))
         self.linear_mid = weight_norm(nn.Linear(hidden_size1, vocab_size))
 
@@ -682,7 +684,7 @@ class DecoderTopDown(nn.Module):
         for i in range(self.max_seg_length):
             #pdb.set_trace()
             valid_outputs, hidden2, states1, states2, _ = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input,
-                                                                             states1=states1, states2=states2)
+                                                                             states1=states1, states2=states2, isSample=True)
 
             # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
 
@@ -712,7 +714,7 @@ class DecoderTopDown(nn.Module):
         input = self.embed(torch.cuda.LongTensor([1]))  # [1] = <sos>
         for i in range(self.max_seg_length):
             #pdb.set_trace()
-            valid_outputs, hidden2, states1, states2, _ = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input, states1=states1, states2=states2)
+            valid_outputs, hidden2, states1, states2, _ = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, input, states1=states1, states2=states2, isSample=True)
 
             _, idx_outs = max_k_NoDuplicate(valid_outputs, sampled_ids, dim_=1,
                                             k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
@@ -735,7 +737,7 @@ class DecoderTopDown(nn.Module):
         sampled_ids = torch.stack(sampled_ids, 1)  # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
 
-    def BUTD_LSTM_Module(self, Vmat, init_hidden2, vfeats, init_input, states1=None, states2=None):
+    def BUTD_LSTM_Module(self, Vmat, init_hidden2, vfeats, init_input, states1=None, states2=None, isSample=False):
         hidden2= init_hidden2
         input1 = torch.cat([hidden2, vfeats,
                             init_input], 1)
@@ -743,17 +745,31 @@ class DecoderTopDown(nn.Module):
 
         hidden1, states1 = self.TopDownAttentionLSTM(input1, states1)
 
-        atten_logit = self.linear_wa(self.dropout(
-            self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1))))
-        atten_logit = atten_logit.squeeze(2)
-        atten = self.softmax(atten_logit)
-        atten = atten.unsqueeze(1)
-        atten_vfeats = torch.matmul(atten, Vmat)
-        input2 = torch.cat([atten_vfeats, hidden1], 2)
-        hidden2, states2 = self.LanguageLSTM(input2, states2)
+        if(isSample):
+            atten_logit = self.linear_wa(self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1)))
+            atten_logit = atten_logit.squeeze(2)
+            atten = self.softmax(atten_logit)
+            atten = atten.unsqueeze(1)
+            pdb.set_trace()
+            atten_vfeats = torch.matmul(atten, Vmat)
+            input2 = torch.cat([atten_vfeats, hidden1], 2)
+            hidden2, states2 = self.LanguageLSTM(input2, states2)
 
-        valid_outputs = self.linear(self.dropout(hidden2))  # teacher forcing 방식
-        mid_outputs = self.linear_mid(self.dropout(hidden1))
+            valid_outputs = self.linear(hidden2)  # teacher forcing 방식
+            mid_outputs = self.linear_mid(hidden1)
+        else:
+            atten_logit = self.linear_wa(self.dropout(
+                self.act_tanh(self.linear_Wva(Vmat) + self.linear_Wha(hidden1))))
+            atten_logit = atten_logit.squeeze(2)
+            atten = self.softmax(atten_logit)
+            atten = atten.unsqueeze(1)
+            atten_vfeats = torch.matmul(atten, Vmat)
+            input2 = torch.cat([atten_vfeats, hidden1], 2)
+            hidden2, states2 = self.LanguageLSTM(input2, states2)
+
+            valid_outputs = self.linear(self.dropout(hidden2))  # teacher forcing 방식
+            mid_outputs = self.linear_mid(self.dropout(hidden1))
+
         hidden2 = hidden2.squeeze(1)
         valid_outputs = valid_outputs.squeeze(1)
         mid_outputs=mid_outputs.squeeze(1)
@@ -781,13 +797,13 @@ class DecoderTopDown(nn.Module):
                                                                                          [PackedArgs[4].unsqueeze(0),
                                                                                           PackedArgs[5].unsqueeze(0)],
                                                                                          [PackedArgs[6].unsqueeze(0),
-                                                                                          PackedArgs[7].unsqueeze(0)])
+                                                                                          PackedArgs[7].unsqueeze(0)], isSample=True)
         else:
             valid_outputs, hidden2_tmp, states1_tmp, states2_tmp, _ = self.BUTD_LSTM_Module(PackedArgs[0], PackedArgs[1],
                                                                                          PackedArgs[2], PackedArgs[3],
                                                                                          None,
                                                                                          [PackedArgs[6].unsqueeze(0),
-                                                                                          PackedArgs[7].unsqueeze(0)])
+                                                                                          PackedArgs[7].unsqueeze(0)], isSample=True)
         valid_outputs = self.softmax(valid_outputs)
         tmp_probs, predicted = max_k_NoDuplicate(valid_outputs, Traj, dim_=1,
                                                  k=NumBeams)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)

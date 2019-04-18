@@ -274,7 +274,7 @@ def get_loader(root, json_, vocab, transform, batch_size, shuffle, num_workers):
     return data_loader
 
 
-def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_workers):
+def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_workers,adaptive=False):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
     assert name in ['train', 'val', 'test-dev2015', 'test2015',  'train+val', 'test2014', 'val2014','trainCider', 'valCider', 'train+valCider']
@@ -282,23 +282,23 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
     if name=='train+val':
         coco_train = BottomUp_CocoDataset(name='train',
                                           json_=json[0],
-                                    vocab=vocab)
+                                    vocab=vocab, adaptive_=adaptive)
         coco_val = BottomUp_CocoDataset(name='val',
                                         json_=json[1],
-                                          vocab=vocab)
+                                          vocab=vocab, adaptive_=adaptive)
         coco=ConcatDataset([coco_train,coco_val])
     elif name == 'train+valCider':
         coco_train = BottomUp_CocoDataset(name='trainCider',
                                           json_=json[0],
-                                          vocab=vocab)
+                                          vocab=vocab, adaptive_=adaptive)
         coco_val = BottomUp_CocoDataset(name='valCider',
                                         json_=json[1],
-                                        vocab=vocab)
+                                        vocab=vocab, adaptive_=adaptive)
         coco = ConcatDataset([coco_train, coco_val])
     else:
         coco = BottomUp_CocoDataset(name=name,
                            json_=json,
-                           vocab=vocab)
+                           vocab=vocab, adaptive_=adaptive)
 
 
 

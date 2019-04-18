@@ -153,6 +153,9 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     bar.update(idx)
     result_json=make_json(captions_list, img_id_list)
 
+    if(args.split == 'val'):
+        args.split += '2014'
+
     with open(args.result_json_path + '/captions_%s_%s_results.json' \
               % (args.split, args.method + str(args.hsc_epoch)), 'w') as f:
 
@@ -185,8 +188,11 @@ def caption_refine(explains, NumBeams=1, model_num=1):
                     x_caption = ''
             elif word_ == '<end>':
                 break
+            elif word_ == '.':
+                x_caption=x_caption[:-1]
+                x_caption += word_
             else:
-                x_caption = x_caption + ' ' + word_
+                x_caption += word_ + ' '
 
         if (NumBeams > 1):
             x_caption=x_caption+'\n'
