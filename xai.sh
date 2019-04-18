@@ -4,9 +4,9 @@
 #SBATCH -n 1
 #SBATCH -o stdout.%j
 #SBATCH -e stderr.%j
-#SBATCH --gres=gpu:3
+#SBATCH --gres=gpu
 
 source activate sj_torch1.0
-python train_UNION_BUTD.py --t_method mean --model_num 2 --batch_size 360
+python train_UNION_BUTD.py --t_method mean --batch_size 128
 source deactivate
 

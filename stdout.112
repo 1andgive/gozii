@@ -1,0 +1,24 @@
+Namespace(LRdim=64, batch_size=128, checkpoint_dir='None', crop_size=224, embed_size=1000, hidden_size=1000, image_dir='data/resized2014', isUnion=False, learning_rate=0.001, log_step=100, model_num=1, model_path='models_BUTD_36/standard_vocab/', num_epochs=40, num_layers=1, num_workers=0, paramH=512, t_method='mean', vocab_path='data/vocab_standard_train_val.pkl')
+loading features from h5 file : ../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5/train36.hdf5
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=1.16s)
+creating index...
+index created!
+loading features from h5 file : ../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5/val36.hdf5
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=0.73s)
+creating index...
+index created!
+t_method : mean, isUnion : False, model_num : 1
+Epoch [0/40], Step [0/4819], Loss: 298.9458, Perplexity: 6769006343028185758019878428687146018319687594313427399152977776009945028660939730003138560723117986948017208182531776817919950848.0000
+Epoch [0/40], Step [100/4819], Loss: 14.0871, Perplexity: 1312006.9658
+Epoch [0/40], Step [200/4819], Loss: 11.6160, Perplexity: 110856.6828
+Epoch [0/40], Step [300/4819], Loss: 11.6126, Perplexity: 110482.1126
+Epoch [0/40], Step [400/4819], Loss: 10.1239, Perplexity: 24931.6594
+Epoch [0/40], Step [500/4819], Loss: 9.8891, Perplexity: 19714.0849
+Epoch [0/40], Step [600/4819], Loss: 9.5544, Perplexity: 14106.5934
+Epoch [0/40], Step [700/4819], Loss: 8.8319, Perplexity: 6849.1681
