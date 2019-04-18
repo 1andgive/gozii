@@ -99,6 +99,7 @@ def main(args):
     N=args.num_epochs * len(data_loader)
     bar = progressbar.ProgressBar(maxval=N).start()
     i_train=0
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.99)
     for epoch in range(epoch_start,args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
@@ -150,9 +151,10 @@ def main(args):
 
             # Clip gradients when they are getting too large
             torch.nn.utils.clip_grad_norm_(params, 0.25)
-            
+
             optimizer.step()
-            
+            scheduler.step()
+
             i_train+=1
 
             # Print log info
@@ -187,7 +189,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=40)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=0)
-    parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--learning_rate', type=float, default=0.01)
     parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
