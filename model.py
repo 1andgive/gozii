@@ -411,7 +411,7 @@ class BAN_HSC(nn.Module):
             encoded_features, union_vfeats, atted_v_feats, betas = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
                                                                         model_num=model_num, isUnion=isUnion, checkBeta=True)
 
-            Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False)
+            Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False, isDuplicate=False)
             if(checkBeta):
                 return Generated_Captions, logits, att, union_vfeats, atted_v_feats, betas
             else:
@@ -660,7 +660,7 @@ class DecoderTopDown(nn.Module):
 
         #hiddens, _ = self.lstm(packed)
 
-    def sample(self, Vmat, union_vfeats, isUnion=False):
+    def sample(self, Vmat, union_vfeats, isUnion=False, isDuplicate=True):
         """Generate captions for given image features using greedy search."""
         batch_size = Vmat.size(0)
         hidden2 = torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
@@ -687,8 +687,11 @@ class DecoderTopDown(nn.Module):
             # _, predicted = valid_outputs.max(1)  # predicted: (batch_size)
 
             #prevent duplicate elements in a list
-            _, idx_outs = max_k(valid_outputs, dim_=1,
-                                                     k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+            if(isDuplicate):
+                _, idx_outs = max_k(valid_outputs, dim_=1, k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
+            else:
+                _, idx_outs = max_k_NoDuplicate(valid_outputs, sampled_ids, dim_=1,
+                                    k=1)  # predicted: (batch_size, NumBeams), tmp_probs: (batch_size, NumBeams)
             predicted=idx_outs[:,0]
 
             sampled_ids.append(predicted)

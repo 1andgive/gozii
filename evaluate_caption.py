@@ -146,7 +146,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             for b_ in range(batch_size):
                 beam_list[b_] = caption_refine(beam_list[b_], NumBeams=5)
 
-
+        #pdb.set_trace()
         captions_list.extend(beam_list)
         img_id_list.extend(img_ids)
 
