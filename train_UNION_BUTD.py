@@ -88,9 +88,14 @@ def main(args):
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
             args.checkpoint_dir)
         model_hsc_data=torch.load(model_hsc_path)
-        encoder.load_state_dict(model_hsc_data['encoder_state'])
-        decoder.load_state_dict(model_hsc_data['decoder_state'])
-        optimizer.load_state_dict(model_hsc_data['optimizer_state'])
+        if (torch.cuda.device_count() > 1):
+            encoder.module.load_state_dict(model_hsc_data['encoder_state'])
+            decoder.module.load_state_dict(model_hsc_data['decoder_state'])
+            optimizer.module.load_state_dict(model_hsc_data['optimizer_state'])
+        else:
+            encoder.load_state_dict(model_hsc_data['encoder_state'])
+            decoder.load_state_dict(model_hsc_data['decoder_state'])
+            optimizer.load_state_dict(model_hsc_data['optimizer_state'])
         epoch_start=model_hsc_data['epoch']+1
 
 
