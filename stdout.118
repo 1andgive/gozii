@@ -1,0 +1,17 @@
+Namespace(LRdim=64, batch_size=128, checkpoint_dir='None', crop_size=224, embed_size=1000, hidden_size=1000, image_dir='data/resized2014', isUnion=False, learning_rate=0.001, log_step=100, model_num=1, model_path='models_BUTD_36/standard_vocab/', num_epochs=100, num_layers=1, num_workers=0, paramH=512, t_method='mean', vocab_path='data/vocab_standard_train_val.pkl')
+loading features from h5 file : ../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5/train36.hdf5
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=0.47s)
+creating index...
+index created!
+loading features from h5 file : ../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5/val36.hdf5
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=0.33s)
+creating index...
+index created!
+t_method : mean, isUnion : False, model_num : 1
+Epoch [0/100], Step [0/4819], Loss: 190.2103, Perplexity: 40483271506122215235275449319489133382914628219925606847837630099705152867061989376.0000

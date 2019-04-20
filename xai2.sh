@@ -7,5 +7,5 @@
 #SBATCH --gres=gpu
 
 source activate sj_torch1.0
-python train_UNION_BUTD.py --t_method uncorr --batch_size 128
+python train_UNION_BUTD.py --t_method uncorr --batch_size 128  --checkpoint_dir model-40.pth
 source deactivate
