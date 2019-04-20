@@ -99,7 +99,8 @@ def main(args):
     N=args.num_epochs * len(data_loader)
     bar = progressbar.ProgressBar(maxval=N).start()
     i_train=0
-    
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
+
     for epoch in range(epoch_start,args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
@@ -153,6 +154,7 @@ def main(args):
             torch.nn.utils.clip_grad_norm_(params, 0.25)
 
             optimizer.step()
+            scheduler.step()
 
             i_train+=1
 
@@ -166,7 +168,12 @@ def main(args):
         model_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
             'model-{}.pth'.format(epoch + 1))
+        prev_model_path = os.path.join(
+            args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
+            'model-{}.pth'.format(epoch-3))
         utils.save_model(model_path, encoder, decoder, epoch, optimizer)
+        if(os.path.exists(prev_model_path)):
+            os.remove(prev_model_path)
 
 
 
@@ -185,7 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('--paramH', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num_layers', type=int , default=1, help='number of layers in lstm')
     
-    parser.add_argument('--num_epochs', type=int, default=40)
+    parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=0.001)

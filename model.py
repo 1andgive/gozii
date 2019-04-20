@@ -580,7 +580,7 @@ def max2D_k(list2D,k=1):
 
 
 class DecoderTopDown(nn.Module):
-    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=20, paramH=256, dropout=0.5):
+    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=40, paramH=256, dropout=0.5):
         """Set the hyper-parameters and build the layers."""
         super(DecoderTopDown, self).__init__()
         self.vocab_size = vocab_size
@@ -617,15 +617,15 @@ class DecoderTopDown(nn.Module):
         states2=[hidden2.unsqueeze(0), hidden2.unsqueeze(0)]
 
 
-        if(isUnion):
-            # pseudo(Vmat_transpose) -> pVmat
-            pVmat=[]
-            for i in range(batch_size):
-                tmp = torch.transpose(Vmat[i, :, :], 0, 1)
-                pVmat.append(torch.pinverse(tmp))
-            pVmat=torch.stack(pVmat,0);
-            beta=torch.matmul(pVmat,union_vfeats.unsqueeze(2))
-            Vmat=beta*Vmat
+        # if(isUnion):
+        #     # pseudo(Vmat_transpose) -> pVmat
+        #     pVmat=[]
+        #     for i in range(batch_size):
+        #         tmp = torch.transpose(Vmat[i, :, :], 0, 1)
+        #         pVmat.append(torch.pinverse(tmp))
+        #     pVmat=torch.stack(pVmat,0);
+        #     beta=torch.matmul(pVmat,union_vfeats.unsqueeze(2))
+        #     Vmat=beta*Vmat
 
 
         outputs=[]
@@ -750,7 +750,6 @@ class DecoderTopDown(nn.Module):
             atten_logit = atten_logit.squeeze(2)
             atten = self.softmax(atten_logit)
             atten = atten.unsqueeze(1)
-            pdb.set_trace()
             atten_vfeats = torch.matmul(atten, Vmat)
             input2 = torch.cat([atten_vfeats, hidden1], 2)
             hidden2, states2 = self.LanguageLSTM(input2, states2)
