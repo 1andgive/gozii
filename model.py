@@ -609,7 +609,7 @@ class DecoderTopDown(nn.Module):
         embeddings = self.embed(captions)
         batch_size=captions.size(0)
 
-        max_seq_length=captions.size(1)
+        max_seq_length=max(lengths)
 
         hidden2=torch.cuda.FloatTensor(batch_size, self.hidden_size2).fill_(0)
 
@@ -630,6 +630,7 @@ class DecoderTopDown(nn.Module):
 
         outputs=[]
         mid_outs=[]
+        pdb.set_trace()
         for i in range(max_seq_length):
             valid_outputs, hidden2, states1, states2, mid_outputs = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, embeddings[:, i, :],
                                                                              states1=states1, states2=states2)
