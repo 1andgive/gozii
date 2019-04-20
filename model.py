@@ -630,7 +630,6 @@ class DecoderTopDown(nn.Module):
 
         outputs=[]
         mid_outs=[]
-        pdb.set_trace()
         for i in range(max_seq_length):
             valid_outputs, hidden2, states1, states2, mid_outputs = self.BUTD_LSTM_Module(Vmat, hidden2, union_vfeats, embeddings[:, i, :],
                                                                              states1=states1, states2=states2)
