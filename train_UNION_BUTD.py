@@ -87,6 +87,7 @@ def main(args):
         model_hsc_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
             args.checkpoint_dir)
+        print('@@@@@@@ LOADING FROM CHECKPOINT : {}'.format(model_hsc_path))
         model_hsc_data=torch.load(model_hsc_path)
         if (torch.cuda.device_count() > 1):
             encoder.module.load_state_dict(model_hsc_data['encoder_state'])
