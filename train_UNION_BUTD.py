@@ -92,11 +92,10 @@ def main(args):
         if (torch.cuda.device_count() > 1):
             encoder.module.load_state_dict(model_hsc_data['encoder_state'])
             decoder.module.load_state_dict(model_hsc_data['decoder_state'])
-            optimizer.module.load_state_dict(model_hsc_data['optimizer_state'])
         else:
             encoder.load_state_dict(model_hsc_data['encoder_state'])
             decoder.load_state_dict(model_hsc_data['decoder_state'])
-            optimizer.load_state_dict(model_hsc_data['optimizer_state'])
+        optimizer.load_state_dict(model_hsc_data['optimizer_state'])
         epoch_start=model_hsc_data['epoch']+1
 
 
