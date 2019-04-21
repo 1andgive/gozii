@@ -171,7 +171,7 @@ class BottomUp_CocoDataset(data.Dataset):
         return len(self.ids)
 
 
-def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
+def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False, unknownToken=-1):
     """Creates mini-batch tensors from the list of tuples (image, caption).
     
     We should build custom collate_fn rather than using default collate_fn, 
@@ -205,6 +205,25 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False):
 
         # Merge captions (from tuple of 1D tensor to 2D tensor).
         lengths = [len(cap) for cap in captions]
+
+        captions=list(captions)
+        features=list(features)
+        spatials=list(spatials)
+
+        for i in range(len(lengths)-1, 0, -1):
+            cap=captions[i]
+            #length=lengths[i]
+            if unknownToken in cap:
+
+                del captions[i] # skip if the caption has <unk> token
+                del lengths[i]
+                del features[i]
+                del spatials[i]
+
+        captions = tuple(captions)
+        features = tuple(features)
+        spatials = tuple(spatials)
+
         targets = torch.zeros(len(captions), max(lengths)).long()
         for i, cap in enumerate(captions):
             end = lengths[i]
@@ -312,13 +331,13 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
                                                   batch_size=batch_size,
                                                   shuffle=shuffle,
                                                   num_workers=num_workers,
-                                                  collate_fn=collate_fn)
+                                                  collate_fn=lambda b: collate_fn(b, unknownToken=vocab('<unk>')))
     else:
         data_loader = torch.utils.data.DataLoader(dataset=coco,
                                                   batch_size=batch_size,
                                                   shuffle=shuffle,
                                                   num_workers=num_workers,
-                                                  collate_fn= lambda b: collate_fn(b, isTest=True))
+                                                  collate_fn= lambda b: collate_fn(b, isTest=True, unknownToken=vocab('<unk>')))
 
 
     return data_loader

@@ -46,7 +46,7 @@ def main(args):
     coco_cap_val_path = addr_coco_cap_val_path
     data_loader = BottomUp_get_loader('train+val', [coco_cap_train_path, coco_cap_val_path], vocab,
                              transform, args.batch_size,
-                             shuffle=True, num_workers=args.num_workers)
+                             shuffle=True, num_workers=args.num_workers, adaptive=True)
 
 
 
@@ -125,7 +125,6 @@ def main(args):
             features = features.cuda()
             captions = captions.cuda()
             targets=targets.cuda()
-
 
             # Forward, backward and optimize
             if(torch.cuda.device_count() > 1):
