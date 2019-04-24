@@ -113,7 +113,7 @@ class Encoder_HieStackedCorr(nn.Module):
             enc_features, _, _, betas = self.forward_BUTD(Vmat, t_method=t_method, model_num=model_num, checkBeta=checkBeta_)
             return enc_features, betas
         else:
-            enc_features,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num, checkBeta=checkBeta_)
+            enc_features,_,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num, checkBeta=checkBeta_)
             return enc_features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
