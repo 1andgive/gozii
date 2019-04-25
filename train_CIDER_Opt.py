@@ -338,6 +338,7 @@ if __name__ == '__main__':
     parser.add_argument('--NumBeams', type=int, default=5)
     parser.add_argument('--isUnion', type=bool, default=False)
     parser.add_argument('--SelfCriticFrequency', type=int, default=5)
+    parser.add_argument('--isAdaptive', type=bool, default=False)
     args = parser.parse_args()
     print(args)
     main(args)
