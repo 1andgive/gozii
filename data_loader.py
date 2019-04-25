@@ -214,7 +214,6 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False, unknownToken=
             cap=captions[i]
             #length=lengths[i]
             if unknownToken in cap:
-
                 del captions[i] # skip if the caption has <unk> token
                 del lengths[i]
                 del features[i]

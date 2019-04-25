@@ -98,7 +98,7 @@ def main(args):
 
     data_loader = BottomUp_get_loader('train+valCider', [coco_cap_train_path, coco_cap_val_path], vocab,
                                       transform, args.batch_size,
-                                      shuffle=True, num_workers=args.num_workers)
+                                      shuffle=True, num_workers=args.num_workers, adaptive=args.isAdaptive)
 
 
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
@@ -252,6 +252,7 @@ def main(args):
                 captions=torch.cat( (torch.cuda.LongTensor(outputs.size(0), 1).fill_(SOS_Token_), outputs) , 1)
                 targets=outputs
                 new_length=torch.sum(captions != 2,1)
+                new_length[new_length > 50] = 50 # 50 is max_seq_length
 
 
 
@@ -280,9 +281,8 @@ def main(args):
             mask = pack_padded_sequence(mask, new_length, batch_first=True)[0]
             output_logit=SoftMax_(output_logit)
             output_logit=torch.log(output_logit)
-            pdb.set_trace()
             tmp_loss = - output_logit * mask
-            tmp_loss = torch.sum(tmp_loss, 1) / torch.sum(mask, 1)
+            tmp_loss = torch.sum(tmp_loss, 1)
 
             tmp_loss = sectionwise_Sum(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )

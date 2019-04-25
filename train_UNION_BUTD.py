@@ -157,7 +157,7 @@ def main(args):
             torch.nn.utils.clip_grad_norm_(params, 0.25)
 
             optimizer.step()
-            if(epoch > args.num_epochs - 60):
+            if(epoch > args.num_epochs - 40):
                 scheduler.step()
 
             i_train+=1

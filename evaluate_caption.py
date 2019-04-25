@@ -72,6 +72,7 @@ def parse_args():
     parser.add_argument('--result_json_path', type=str, default='test_json/', help='saving path for captioning json')
     parser.add_argument('--test_target', type=str, default='COCO', help='COCO or KARPATHY')
     parser.add_argument('--method', type=str, default='mean_butd_fix36_cider0', help='applied method')
+    parser.add_argument('--isAdaptive', type=bool, default=False)
     args = parser.parse_args()
     return args
 
@@ -234,12 +235,12 @@ if __name__ == '__main__':
     if (args.split=='test2014'):
         test_loader = BottomUp_get_loader('test2014', addr_coco_cap_test2014_path, vocab,
                                  None, args.batch_size,
-                                 shuffle=False, num_workers=0)
+                                 shuffle=False, num_workers=0, adaptive=args.isAdaptive)
     elif(args.split=='val'):
         name='val2014'
         test_loader = BottomUp_get_loader(name, addr_coco_cap_val_path, vocab,
                                           None, args.batch_size,
-                                          shuffle=False, num_workers=0)
+                                          shuffle=False, num_workers=0, adaptive=args.isAdaptive)
 
     # Build the models
     encoder = Encoder_HieStackedCorr(args.embed_size, 2048, model_num=args.model_num, LRdim=args.LRdim).to(device)
