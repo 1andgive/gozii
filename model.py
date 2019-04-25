@@ -506,15 +506,17 @@ def max_k(inputTensor,dim_=0,k=1):
 
 def max_k_NoDuplicate(inputTensor, sample_ids,dim_=0,k=1):
     if(len(sample_ids) > 0):
-        sample_ids=[sample_ids[-1]]
-    word_domain_size=len(sample_ids)+k
+        tmp_sample_ids=[sample_ids[-1]]
+    else:
+        tmp_sample_ids=sample_ids
+    word_domain_size=len(tmp_sample_ids)+k
 
     Probs, idx_outs = max_k(inputTensor, dim_=dim_, k=word_domain_size)
     Max_k_idx = idx_outs[:, :word_domain_size]
     duplicate_list=[]
     for j in range(word_domain_size):
         predicted = Max_k_idx[:, j]
-        duplicate_idx=batchwise_in(predicted, sample_ids)
+        duplicate_idx=batchwise_in(predicted, tmp_sample_ids)
         duplicate_list.append(duplicate_idx)
 
     #print(duplicate_list)
@@ -524,7 +526,7 @@ def max_k_NoDuplicate(inputTensor, sample_ids,dim_=0,k=1):
     #print(Max_k_idx[duplicate_idx, :])
     #print(Max_k_idx[duplicate_list[2], :])
     #pdb.set_trace()
-    Max_k_idx=Max_k_idx[:,:k] # Non-duplicative(toward sample_ids) top-k indicies
+    Max_k_idx=Max_k_idx[:,:k] # Non-duplicative(toward tmp_sample_ids) top-k indicies
     return torch.gather(inputTensor,1,Max_k_idx), Max_k_idx
 
 def batchwise_in(batch_elem, batch_list):
@@ -929,14 +931,16 @@ class BeamQueue:
 
             for batch_idx in range(batch_size):
 
-                tmp_Traj = [tl[batch_idx][1].getTraj() for tl in self.items]  # if no duplicate trajectory
+                tmp_Traj = [tl[batch_idx][1].getTraj() for tl in self.items]  # if there exists a duplicate trajectory in que
                 data_tmp_Traj=data[batch_idx][1].getTraj()
                 if (data_tmp_Traj in tmp_Traj):
                     t_idx=tmp_Traj.index(data_tmp_Traj)
                     if(self.items[t_idx][batch_idx][0] < data[batch_idx][0]):
                         self.items[t_idx][batch_idx][0]=-9999 # if duplicate trajectory and new data has higher probability, then remove the old node from the queue
+                    else:
+                        continue
 
-                for que_idx in range(self.maxSize):
+                for que_idx in range(self.maxSize): # if no duplicate trajectory in que
                     if (self.items[que_idx][batch_idx][0] < data[batch_idx][0]):
                         for tmp_que_idx in range(self.maxSize-2, que_idx-1, -1): # prepare for new order
                             self.items[tmp_que_idx+1][batch_idx]=self.items[tmp_que_idx][batch_idx]

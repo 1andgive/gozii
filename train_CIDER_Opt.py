@@ -211,6 +211,7 @@ def main(args):
 
                 output_baseline=decoder.sample(features,union_vfeats)
                 # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
+                pdb.set_trace()
 
                 2. ################################################## RL HERE ##############################################
                 caption_list=[]
@@ -291,6 +292,7 @@ def main(args):
             decoder.zero_grad()
             if (torch.cuda.device_count() > 1):
                 loss = loss.mean()
+            pdb.set_trace()
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(params, args.grad_clip)
