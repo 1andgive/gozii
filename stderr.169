@@ -1,9 +1,0 @@
-PTBTokenizer tokenized 7587675 tokens at 1363979.61 tokens per second.
-Traceback (most recent call last):
-  File "train_CIDER_Opt.py", line 345, in <module>
-    main(args)
-  File "train_CIDER_Opt.py", line 141, in main
-    model_hsc_data = torch.load(model_hsc_path)
-  File "/home/seungjun/.conda/envs/sj_torch1.0/lib/python3.6/site-packages/torch/serialization.py", line 366, in load
-    f = open(f, 'rb')
-FileNotFoundError: [Errno 2] No such file or directory: 'models_BUTD_36/standard_vocab/mean/model1_LR64/model-40.pth'

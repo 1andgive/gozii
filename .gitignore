@@ -23,5 +23,3 @@ spice/
 tokenizer/
 models_BUTD_36/
 *.sh
-stdout.*
-stderr.*
