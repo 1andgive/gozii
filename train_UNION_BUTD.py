@@ -83,8 +83,6 @@ def main(args):
     
     print('t_method : {}, isUnion : {}, model_num : {}'.format(args.t_method, args.isUnion, args.model_num))
 
-    model_encoder_path=os.path.join('models/uncorr','model{}_LR{}'.format(args.model_num, args.LRdim), 'model-16.pth')
-
     if (args.checkpoint_dir != 'None'):
         model_hsc_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
@@ -97,11 +95,8 @@ def main(args):
         else:
             encoder.load_state_dict(model_hsc_data['encoder_state'])
             decoder.load_state_dict(model_hsc_data['decoder_state'])
-        optimizer.load_state_dict(model_hsc_data['optimizer_state'])
+        #optimizer.load_state_dict(model_hsc_data['optimizer_state'])
         epoch_start=model_hsc_data['epoch']+1
-    else:
-        model_hsc_data = torch.load(model_encoder_path)
-        encoder.load_state_dict(model_hsc_data['encoder_state'])
 
     if not os.path.exists(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim))):
         os.makedirs(os.path.join(args.model_path,args.t_method,'model{}_LR{}'.format(args.model_num,args.LRdim)))
@@ -162,7 +157,7 @@ def main(args):
             torch.nn.utils.clip_grad_norm_(params, 0.25)
 
             optimizer.step()
-            if(epoch > 40):
+            if(epoch > args.num_epochs - 60):
                 scheduler.step()
 
             i_train+=1
