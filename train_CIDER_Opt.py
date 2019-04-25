@@ -23,7 +23,7 @@ from cider.cider import CiderScorer
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def gen_mask(idx, batch_size, label_size, maxSeqLength=20):
+def gen_mask(idx, batch_size, label_size, maxSeqLength=50):
     label_from_vqa=torch.cuda.FloatTensor(batch_size, maxSeqLength, label_size).fill_(0)
     for seq in range(maxSeqLength):
         label_from_vqa[range(batch_size),seq,idx[:,seq]]=1
