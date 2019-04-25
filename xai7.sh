@@ -7,5 +7,5 @@
 #SBATCH --gres=gpu
 
 source activate sj_torch1.0
-python train_CIDER_Opt.py --batch_size 350
+python train_CIDER_Opt.py --batch_size 350 --model_path models_BUTD/standard_vocab/ --isAdaptive True --checkpoint_dir model-75.pth
 source deactivate
