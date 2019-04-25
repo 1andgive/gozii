@@ -1,0 +1,21 @@
+Namespace(LRdim=64, batch_size=100, checkpoint_dir='model-70.pth', crop_size=224, embed_size=1000, hidden_size=1000, image_dir='data/resized2014', isAdaptive=True, isUnion=False, learning_rate=0.001, log_step=100, model_num=1, model_path='models_BUTD/standard_vocab/', num_epochs=100, num_layers=1, num_workers=0, paramH=512, t_method='uncorr', vocab_path='data/vocab_standard_train_val.pkl')
+loading features from h5 file : ../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5/train.hdf5
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=1.42s)
+creating index...
+index created!
+loading features from h5 file : ../../Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5/val.hdf5
+loading imagefeatures
+loading spatial features
+loading annotations into memory...
+Done (t=0.71s)
+creating index...
+index created!
+t_method : uncorr, isUnion : True, model_num : 1
+@@@@@@@ LOADING FROM CHECKPOINT : models_BUTD/standard_vocab/uncorr/model1_LR64/model-70.pth
+Epoch [70/100], Step [0/6168], Loss: 2.8959, Perplexity: 18.0989
+Epoch [70/100], Step [100/6168], Loss: 2.9028, Perplexity: 18.2247
+Epoch [70/100], Step [200/6168], Loss: 6.0427, Perplexity: 421.0302
+Epoch [70/100], Step [300/6168], Loss: 4.3029, Perplexity: 73.9148

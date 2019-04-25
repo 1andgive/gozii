@@ -1,0 +1,13 @@
+PTBTokenizer tokenized 7587675 tokens at 1788766.56 tokens per second.
+  0% |                                                                                                                   |Traceback (most recent call last):
+  File "train_CIDER_Opt.py", line 347, in <module>
+    main(args)
+  File "train_CIDER_Opt.py", line 217, in main
+    caption_list=[]
+  File "train_CIDER_Opt.py", line 217, in main
+    caption_list=[]
+  File "/home/seungjun/.conda/envs/sj_torch1.0/lib/python3.6/bdb.py", line 51, in trace_dispatch
+    return self.dispatch_line(frame)
+  File "/home/seungjun/.conda/envs/sj_torch1.0/lib/python3.6/bdb.py", line 70, in dispatch_line
+    if self.quitting: raise BdbQuit
+bdb.BdbQuit

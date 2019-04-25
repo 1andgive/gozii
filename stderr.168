@@ -1,7 +1,0 @@
-PTBTokenizer tokenized 7587675 tokens at 1178010.33 tokens per second.
-  0% |                                                                                                                   |Traceback (most recent call last):
-  File "train_CIDER_Opt.py", line 344, in <module>
-    main(args)
-  File "train_CIDER_Opt.py", line 283, in main
-    tmp_loss = - output_logit * mask
-RuntimeError: The size of tensor a (5067) must match the size of tensor b (4980) at non-singleton dimension 0
