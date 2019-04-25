@@ -280,6 +280,7 @@ def main(args):
             mask = pack_padded_sequence(mask, new_length, batch_first=True)[0]
             output_logit=SoftMax_(output_logit)
             output_logit=torch.log(output_logit)
+            pdb.set_trace()
             tmp_loss = - output_logit * mask
             tmp_loss = torch.sum(tmp_loss, 1) / torch.sum(mask, 1)
 

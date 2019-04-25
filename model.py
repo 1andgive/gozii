@@ -827,7 +827,7 @@ class DecoderTopDown(nn.Module):
             PackArgs = [Vmat, hidden2, meanVmat, input, None, None,
                         states2[0].squeeze(0), states2[1].squeeze(0)]
 
-        return beam_decode(self.BottomUpBeamAdapter, PackArgs, NumBeams, 20, EOS_Token)
+        return beam_decode(self.BottomUpBeamAdapter, PackArgs, NumBeams, 40, EOS_Token)
 
 
 
