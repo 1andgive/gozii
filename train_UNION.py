@@ -41,7 +41,7 @@ def main(args):
     coco_cap_val_path = 'D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_val2014.json'
     data_loader = BottomUp_get_loader('train+val', [coco_cap_train_path, coco_cap_val_path], vocab,
                              transform, args.batch_size,
-                             shuffle=True, num_workers=args.num_workers)
+                             shuffle=True, num_workers=args.num_workers, adaptive=args.isAdaptive)
 
 
 
@@ -145,6 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--t_method', type=str, default='uncorr')
     parser.add_argument('--LRdim', type=int, default=64)
     parser.add_argument('--model_num', type=int, default=1)
+    parser.add_argument('--isAdaptive', type=bool, default=False)
     args = parser.parse_args()
     print(args)
     main(args)
