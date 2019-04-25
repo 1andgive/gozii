@@ -1,1 +1,2 @@
-  0% |                                                                                                                   |  0% |                                                                                                                   |
+  0% |                                                                                                                   |  0% |                                                                                                                   |slurmstepd: error: *** JOB 167 ON server2 CANCELLED AT 2019-04-25T17:20:39 ***
+slurmstepd: error: Exceeded step memory limit at some point.
