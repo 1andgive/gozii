@@ -12,6 +12,7 @@ from torchvision import transforms
 import pdb
 import utils_hsc as utils
 from address_server_XAI import *
+import sys
 
 
 
@@ -114,8 +115,8 @@ def main(args):
             # Print log info
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
-                      .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item()))) 
-                
+                      .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item())))
+                sys.stdout.flush()
             # Save the model checkpoints
         model_path = os.path.join(
             args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim),
