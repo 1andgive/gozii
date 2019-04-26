@@ -203,12 +203,6 @@ def main(args):
                 1. #####################################################################################################
 
 
-
-
-
-
-
-
                 output_baseline=decoder.sample(features,union_vfeats)
                 # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
 
@@ -276,8 +270,7 @@ def main(args):
 
 
             # tmp_loss=criterion(output_logit, target).to(device)
-
-            mask = gen_mask(targets, targets.size(0), output_logit.size(1))
+            mask = gen_mask(targets, targets.size(0), output_logit.size(1), maxSeqLength=torch.max(new_length))
             mask = pack_padded_sequence(mask, new_length, batch_first=True)[0]
             output_logit=SoftMax_(output_logit)
             output_logit=torch.log(output_logit)
@@ -296,6 +289,14 @@ def main(args):
             torch.nn.utils.clip_grad_norm_(params, args.grad_clip)
 
             optimizer.step()
+
+            tmp_loss =None
+            loss =None
+            output_logit=None
+            mask=None
+            _=None
+            output_baseline=None
+            outputs=None
 
             3. ##########################################################################################################
 
