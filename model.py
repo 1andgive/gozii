@@ -181,7 +181,7 @@ class Encoder_HieStackedCorr(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=30):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20):
         """Set the hyper-parameters and build the layers."""
         super(DecoderRNN, self).__init__()
         self.vocab_size=vocab_size
@@ -582,7 +582,7 @@ def max2D_k(list2D,k=1):
 
 
 class DecoderTopDown(nn.Module):
-    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=30, paramH=256, dropout=0.5):
+    def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=20, paramH=256, dropout=0.5):
         """Set the hyper-parameters and build the layers."""
         super(DecoderTopDown, self).__init__()
         self.vocab_size = vocab_size
@@ -829,7 +829,7 @@ class DecoderTopDown(nn.Module):
             PackArgs = [Vmat, hidden2, meanVmat, input, None, None,
                         states2[0].squeeze(0), states2[1].squeeze(0)]
 
-        return beam_decode(self.BottomUpBeamAdapter, PackArgs, NumBeams, 30, EOS_Token)
+        return beam_decode(self.BottomUpBeamAdapter, PackArgs, NumBeams, 20, EOS_Token)
 
 
 
