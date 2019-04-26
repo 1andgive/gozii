@@ -290,13 +290,7 @@ def main(args):
 
             optimizer.step()
 
-            tmp_loss =None
-            loss =None
-            output_logit=None
-            mask=None
-            _=None
-            output_baseline=None
-            outputs=None
+
 
             3. ##########################################################################################################
 
@@ -306,6 +300,14 @@ def main(args):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}, Cider: {:1.4f}'
                       .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item()), torch.mean(score_baseline)))
                 sys.stdout.flush()
+
+            tmp_loss = None
+            loss = None
+            output_logit = None
+            mask = None
+            _ = None
+            output_baseline = None
+            outputs = None
 
         # Save the model checkpoints
         model_path = os.path.join(
