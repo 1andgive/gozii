@@ -48,11 +48,11 @@ def parse_args():
     parser.add_argument('--logits', type=bool, default=False)
     parser.add_argument('--index', type=int, default=0)
     parser.add_argument('--epoch', type=int, default=12)
-    parser.add_argument('--hsc_epoch', type=int, default=13)
+    parser.add_argument('--hsc_epoch', type=int, default=16)
     parser.add_argument('--hsc_path', type=str, default='models/', help='path for resuming hsc pre-trained models')
     parser.add_argument('--embed_size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden_size', type=int, default=512, help='dimension of lstm hidden states')
-    parser.add_argument('--vocab_path', type=str, default='data/vocab2.pkl', help='path for vocabulary wrapper')
+    parser.add_argument('--vocab_path', type=str, default='data/vocab_threshold_0.pkl', help='path for vocabulary wrapper')
     parser.add_argument('--num_layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('--save_fig_loc', type=str, default='saved_figs_with_caption/')
     parser.add_argument('--x_method', type=str, default='weight_only') # mean, NoAtt, sum, weight_only
@@ -339,7 +339,7 @@ if __name__ == '__main__':
         vocab = pickle.load(f)
 
 
-    encoder = Encoder_HieStackedCorr(args.embed_size, 2048,LRdim=args.LRdim).to(device)
+    encoder = Encoder_HieStackedCorr(args.embed_size, 2048,args.model_num,LRdim=args.LRdim).to(device)
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
 
     def process(args, model, eval_loader,Dict_qid2vid):
@@ -371,7 +371,7 @@ if __name__ == '__main__':
         encoder.train(False)
         decoder.train(False)
 
-        caption_generator=BAN_HSC(model,encoder,decoder)
+        caption_generator=BAN_HSC(model,encoder,decoder,vocab)
 
         ################################################################################################################
 
