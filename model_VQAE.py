@@ -17,7 +17,7 @@ class EnsembleVQAE(nn.Module):
         self.linearWq = nn.Linear(qdim, embed_size)
         self.linearWv = nn.Linear(vdim, embed_size)
 
-    def forward(self, v, b, q, ans, captions, lengths, isBUTD=False):
+    def forward(self, v, b, q, ans, captions, lengths, isBUTD=False, obj_nums=36):
 
         q=q.squeeze(1)
         logits, att = self.BAN(v, b, q, None)
@@ -30,8 +30,10 @@ class EnsembleVQAE(nn.Module):
         # att_for_v dimension => [b, v_feature_dim, 1]
 
         atted_v_feats = att_for_v * v  # attended visual features
-        atted_v_feats_sum = torch.sum(atted_v_feats, 1).unsqueeze(1)
-        atted_v_feats_mean = torch.mean(atted_v_feats, 1).unsqueeze(1)
+        atted_v_feats_sum = torch.sum(atted_v_feats, 1)
+        atted_v_feats_mean=atted_v_feats_sum/obj_nums.unsqueeze(1)
+        atted_v_feats_sum=atted_v_feats_sum.unsqueeze(1)
+        atted_v_feats_mean=atted_v_feats_mean.unsqueeze(1)
 
         q_emb = self.BAN.module.extractQEmb(q)
         q_emb = q_emb[:, -1, :]

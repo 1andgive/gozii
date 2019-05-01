@@ -23,6 +23,7 @@ import codes.base_model as base_model
 import codes.utils as utils
 from model import Encoder_HieStackedCorr, DecoderRNN
 from model_explain import UNCorrXAI, GuideVfeat, CaptionEncoder
+from data_loader import VQAFeatureLoaderAdapter
 
 import pdb
 
@@ -105,7 +106,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     qIds = torch.IntTensor(N).zero_()
     idx = 0
     bar = progressbar.ProgressBar(maxval=N).start()
-    for v, b, q, i in iter(dataloader):
+    for v, b, q, i, num_objs in iter(dataloader):
         bar.update(idx)
         batch_size = v.size(0)
         q = q.type(torch.LongTensor)
@@ -114,9 +115,7 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
-            num_objs = torch.sum(v, 2)
-            num_objs = torch.sum(num_objs != 0.0, 1)
-            num_objs = num_objs.float()
+            num_objs = num_objs.cuda()
 
             generated_captions, logits, att = caption_generator.Explain(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_, obj_nums=num_objs)
 
@@ -329,7 +328,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    eval_loader = DataLoader(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    eval_loader = VQAFeatureLoaderAdapter(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:

@@ -585,3 +585,16 @@ def vqaE_CapEnc_Loader(name, dictionary_vqa, vocab_VQAE, batch_size, shuffle, nu
 
     data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
     return data_loader
+
+def VQA_collate_fn(data, pre_collate):
+    v,b,q,i=pre_collate(data)
+    obj_nums = [v_sample.size(0) for v_sample in v]
+    obj_nums = torch.Tensor(obj_nums)
+    return v,b,q,i,obj_nums
+
+# eval_loader = DataLoader(eval_dset, batch_size, shuffle=True, num_workers=0, collate_fn=utils.trim_collate) # 이 부분 바꿔줘야됨
+def VQAFeatureLoaderAdapter(dataset, batch_size, shuffle=True, num_workers=0, collate_fn=None):
+    collate_fn_adapter = lambda b: VQA_collate_fn(b,collate_fn)
+    data_loader = torch.utils.data.DataLoader(dataset, batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=collate_fn_adapter)
+
+    return data_loader

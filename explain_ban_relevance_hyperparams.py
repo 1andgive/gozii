@@ -31,6 +31,7 @@ import pdb
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+from data_loader import VQAFeatureLoaderAdapter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -118,7 +119,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
 
     DICT_RELEV=Dict_AC_2_Q
 
-    for v, b, q, i in iter(dataloader):
+    for v, b, q, i, num_objs in iter(dataloader):
         batch_size = v.size(0)
         if(rel_idx > 0):
             temp='['
@@ -136,9 +137,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
 
-                num_objs = torch.sum(v, 2)
-                num_objs = torch.sum(num_objs != 0.0, 1)
-                num_objs = num_objs.float()
+                num_objs = num_objs.cuda()
 
                 generated_captions, logits, att, encoded_feats, _ = caption_generator_list[
                     i_cap].generate_caption_n_context(v, b, q, t_method='uncorr', x_method='weight_only',
@@ -334,7 +333,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    eval_loader = DataLoader(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    eval_loader = VQAFeatureLoaderAdapter(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:

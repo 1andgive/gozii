@@ -184,10 +184,11 @@ if __name__ == '__main__':
         epoch_start = model_vqaE_data['epoch']+1
 
     for epoch in range(epoch_start, args.num_epoch):
-        for i,(v, b, q, ans, captions, lengths) in enumerate(vqaE_loader):
+        for i,(v, b, q, ans, captions, lengths, num_objs) in enumerate(vqaE_loader):
 
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             v = v.cuda()
+            num_objs=num_objs.cuda()
 
             if (args.selfAtt):
                 v = selfAtt(v)
@@ -198,7 +199,7 @@ if __name__ == '__main__':
 
             ban_vqaE.zero_grad()
 
-            preds, att, outputs = ban_vqaE(v, b, q, ans, captions, lengths, isBUTD=args.isBUTD)
+            preds, att, outputs = ban_vqaE(v, b, q, ans, captions, lengths, isBUTD=args.isBUTD, obj_nums=num_objs)
             #outs=caption_encoder.forward_DoubleLSTM_out(hiddens)
             Loss = criterion_Explain(outputs, targets) + instance_bce_with_logits(preds, ans)
             Loss.backward()
