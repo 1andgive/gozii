@@ -357,7 +357,7 @@ class BAN_HSC(nn.Module):
 
         return Generated_Captions, logits, att
 
-    def generate_explain(self,Vmat, encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, obj_nums=36):
+    def generate_explain(self,Vmat, encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1):
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 

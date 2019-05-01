@@ -134,16 +134,17 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
 
     print('processing-{}-'.format(method))
 
-    for i,(v, b, q, ans, img_ids, _) in enumerate(dataloader):
+    for i,(v, b, q, ans, img_ids, _, num_objs) in enumerate(dataloader):
         bar.update(idx)
         batch_size = v.size(0)
         with torch.no_grad():
+            num_objs=num_objs.cuda()
             v = Variable(v).cuda()
             q=q.squeeze(1)
 
             if (method == 'MEAN_LRCN'):
                 generated_captions, logits, att, encoded_feats, _ = caption_generator.generate_caption_n_context(v, b, q, t_method='mean', x_method='weight_only',
-                                                      s_method=s_method_, useVQA=True)
+                                                      s_method=s_method_, useVQA=True, obj_nums=num_objs)
             elif (method == 'VQAE_LRCN'):
                 if(selfAtt):
                     v=selfAtt(v)
@@ -151,11 +152,11 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
                                                                                                  t_method='mean',
                                                                                                  x_method='weight_only',
                                                                                                  s_method='BestOne',
-                                                                                                 model_num=1)
+                                                                                                 model_num=1, obj_nums=num_objs)
             elif (method == 'MEAN_BUTD'):
                 generated_captions, logits, att, encoded_feats, Vmat = caption_generator.generate_caption_n_context(v, b, q, t_method='mean', x_method='weight_only',
                                                       s_method=s_method_,
-                                                      isBUTD=True, useVQA=True)
+                                                      isBUTD=True, useVQA=True, obj_nums=num_objs)
             elif (method == 'VQAE_BUTD'):
                 if (selfAtt):
                     v = selfAtt(v)
@@ -164,15 +165,15 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
                                                                                                  x_method='weight_only',
                                                                                                  s_method='BestOne',
                                                                                                  model_num=1,
-                                                                                                 isBUTD=True)
+                                                                                                 isBUTD=True, obj_nums=num_objs)
             elif (method == 'OURS_LRCN' or method == 'OURS_LRCN_Feeding'):
 
                 generated_captions, logits, att, encoded_feats, _ = caption_generator.generate_caption_n_context(v, b, q, t_method='uncorr', x_method='weight_only',
-                                                      s_method=s_method_, useVQA=True)
+                                                      s_method=s_method_, useVQA=True, obj_nums=num_objs)
             else:
                 generated_captions, logits, att, encoded_feats, Vmat = caption_generator.generate_caption_n_context(
                     v, b, q, t_method='uncorr', x_method='weight_only', s_method=s_method_,
-                    isBUTD=True, isUnion=True, useVQA=True)
+                    isBUTD=True, isUnion=True, useVQA=True, obj_nums=num_objs)
 
             idx += batch_size
             bar.update(idx)

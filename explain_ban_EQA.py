@@ -114,7 +114,11 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
             b = Variable(b).cuda()
             q = Variable(q).cuda()
 
-            generated_captions, logits, att = caption_generator.Explain(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_)
+            num_objs = torch.sum(v, 2)
+            num_objs = torch.sum(num_objs != 0.0, 1)
+            num_objs = num_objs.float()
+
+            generated_captions, logits, att = caption_generator.Explain(v, b, q,t_method=t_method_, x_method=x_method_, s_method=s_method_, obj_nums=num_objs)
 
             idx += batch_size
             img_list=[]

@@ -119,7 +119,7 @@ def main(args):
     for epoch in range(epoch_start,args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
-        for i, (features, spatials, captions, lengths) in enumerate(data_loader):
+        for i, (features, spatials, captions, lengths, num_objs) in enumerate(data_loader):
             bar.update(i_train)
             # Set mini-batch dataset
             # if(args.model_num > 6):
@@ -134,13 +134,14 @@ def main(args):
 
             features = features.cuda()
             captions = captions.cuda()
+            num_objs= num_objs.cuda()
             targets=targets.cuda()
 
             # Forward, backward and optimize
             if(torch.cuda.device_count() > 1):
-                features_encoded,union_vfeats, features, betas=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+                features_encoded,union_vfeats, features, betas=encoder.module.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion, obj_nums=num_objs)
             else:
-                features_encoded,union_vfeats, features, betas=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion)
+                features_encoded,union_vfeats, features, betas=encoder.forward_BUTD(features,t_method=args.t_method,model_num=args.model_num, isUnion=args.isUnion, obj_nums=num_objs)
 
             outputs, mid_outs = decoder(features, features_encoded, union_vfeats, captions, lengths)
             #print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))

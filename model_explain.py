@@ -419,7 +419,7 @@ class UNCorrXAI(nn.Module):
 
                 return logits, Cap_Enc.forward_CL(q_emb,hiddens2), L0_guide, L2_guide
 
-    def Explain(self, v, b, q, t_method='mean', x_method='sum', s_method='BestOne', model_num=1):
+    def Explain(self, v, b, q, t_method='mean', x_method='sum', s_method='BestOne', model_num=1, obj_nums=36):
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
         assert model_num in [1, 2, 3, 4]
@@ -472,9 +472,9 @@ class UNCorrXAI(nn.Module):
         Enc = self.encoder
         if (model_num == 1):
             if (t_method == 'mean'):
-                x_ = Enc.MeanVmat(atted_v_feats)
+                x_ = Enc.MeanVmat(atted_v_feats, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
-                x_ = Enc.MeanVmat(Enc.UnCorrVmat(atted_v_feats))
+                x_ = Enc.MeanVmat(Enc.UnCorrVmat(atted_v_feats), obj_nums=obj_nums)
         elif (model_num == 2):
             if (t_method == 'mean'):
                 x_ = Enc.bn(Enc.linear(Enc.SumVmat(atted_v_feats)))
@@ -482,14 +482,14 @@ class UNCorrXAI(nn.Module):
                 x_ = Enc.SumVmat(Enc.UnCorrVmat(atted_v_feats))
         elif (model_num == 3):
             if (t_method == 'mean'):
-                x_ = Enc.MeanVmat(atted_v_feats)
+                x_ = Enc.MeanVmat(atted_v_feats, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
-                x_ = Enc.MeanVmat(Enc.UnCorrVmat_tanh(atted_v_feats))
+                x_ = Enc.MeanVmat(Enc.UnCorrVmat_tanh(atted_v_feats), obj_nums=obj_nums)
         elif (model_num == 4):
             if (t_method == 'mean'):
-                x_ = Enc.MeanVmat(atted_v_feats)
+                x_ = Enc.MeanVmat(atted_v_feats, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
-                x_ = Enc.MeanVmat(Enc.UnCorrVmat_Lrelu(atted_v_feats))
+                x_ = Enc.MeanVmat(Enc.UnCorrVmat_Lrelu(atted_v_feats), obj_nums=obj_nums)
 
         q_emb=self.BAN.module.extractQEmb(q)
         q_emb=q_emb[:,-1,:]

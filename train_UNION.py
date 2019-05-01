@@ -86,7 +86,7 @@ def main(args):
     for epoch in range(epoch_start,args.num_epochs):
         #for i, (images, captions, lengths) in enumerate(data_loader):
 
-        for i, (features, spatials, captions, lengths) in enumerate(data_loader):
+        for i, (features, spatials, captions, lengths, num_objs) in enumerate(data_loader):
             
             # Set mini-batch dataset
             if(args.model_num > 6):
@@ -97,11 +97,12 @@ def main(args):
 
             features = features.cuda()
             captions = captions.cuda()
+            num_objs=num_objs.cuda()
             targets=targets.cuda()
 
 
             # Forward, backward and optimize
-            features_encoded = encoder(features,t_method=args.t_method,model_num=args.model_num)
+            features_encoded = encoder(features,t_method=args.t_method,model_num=args.model_num, obj_nums=num_objs)
 
             outputs = decoder(features_encoded, captions, lengths, model_num=args.model_num)
 

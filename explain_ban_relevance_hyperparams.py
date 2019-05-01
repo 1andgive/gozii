@@ -136,9 +136,13 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
 
+                num_objs = torch.sum(v, 2)
+                num_objs = torch.sum(num_objs != 0.0, 1)
+                num_objs = num_objs.float()
+
                 generated_captions, logits, att, encoded_feats, _ = caption_generator_list[
                     i_cap].generate_caption_n_context(v, b, q, t_method='uncorr', x_method='weight_only',
-                                                      s_method=s_method_, model_num=model_num_, useVQA=True)
+                                                      s_method=s_method_, model_num=model_num_, useVQA=True, obj_nums=num_objs)
                 DICT_RELEV = Dict_AC_2_Q
 
                 idx += batch_size
