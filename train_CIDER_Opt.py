@@ -96,12 +96,12 @@ def main(args):
     tokenizer = PTBTokenizer()
     overall_gts = tokenizer.tokenize(overall_gts)
 
-    # data_loader = BottomUp_get_loader('train+valCider', [coco_cap_train_path, coco_cap_val_path], vocab,
-    #                                   transform, args.batch_size,
-    #                                   shuffle=True, num_workers=args.num_workers, adaptive=args.isAdaptive)
-    data_loader = BottomUp_get_loader('valCider', coco_cap_val_path, vocab,
+    data_loader = BottomUp_get_loader('train+valCider', [coco_cap_train_path, coco_cap_val_path], vocab,
                                       transform, args.batch_size,
-                                      shuffle=False, num_workers=args.num_workers, adaptive=args.isAdaptive)
+                                      shuffle=True, num_workers=args.num_workers, adaptive=args.isAdaptive)
+    # data_loader = BottomUp_get_loader('valCider', coco_cap_val_path, vocab,
+    #                                   transform, args.batch_size,
+    #                                   shuffle=False, num_workers=args.num_workers, adaptive=args.isAdaptive)
 
 
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
