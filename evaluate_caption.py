@@ -29,7 +29,7 @@ from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC, DecoderTopDown
 from address_server_XAI import *
 
 import pdb
-
+from torchvision import transforms
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument('--gamma', type=int, default=2)
     parser.add_argument('--split', type=str, default='test2014')
     parser.add_argument('--input', type=str, default='saved_models/ban')
+    parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')
     parser.add_argument('--output', type=str, default='results')
     parser.add_argument('--batch_size', type=int, default=768)
     parser.add_argument('--debug', type=bool, default=True)
@@ -113,16 +114,17 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
     print('t_method : {}, x_method : {}, isBUTD : {}, isUnion : {}'.format(t_method_,x_method_,args.isBUTD,args.isUnion))
     captions_list = []
     img_id_list=[]
-    for v, b, img_ids in iter(dataloader):
+    for v, b, img_ids, obj_nums in iter(dataloader):
         bar.update(idx)
         batch_size = v.size(0)
         with torch.no_grad():
             v = Variable(v).cuda()
-
+            obj_nums=obj_nums.cuda()
 
             #print(args.isUnion)
-            generated_captions, _, _, encoded_feats, Vmat = caption_generator.generate_caption_n_context(v, None, None,t_method=t_method_, x_method=args.x_method, s_method=s_method_,
-                                                                                                                isBUTD=args.isBUTD , isUnion=args.isUnion, useVQA=False)
+            generated_captions, _, _, encoded_feats, Vmat = caption_generator.generate_caption_n_context(v, None, None, obj_nums=obj_nums, t_method=t_method_, x_method=args.x_method, s_method=s_method_,
+                                                                                                                isBUTD=args.isBUTD , isUnion=args.isUnion, useVQA=False, isDuplicate=True)
+
             beam_list = []
             idx += batch_size
 
@@ -149,6 +151,8 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
 
         #pdb.set_trace()
         captions_list.extend(beam_list)
+
+        pdb.set_trace()
         img_id_list.extend(img_ids)
 
     bar.update(idx)
@@ -177,28 +181,31 @@ def make_json(captions, ImgIds):
 
 def caption_refine(explains, NumBeams=1, model_num=1):
 
-    x_caption = ''
+
+    cap_list=[]
     for num_sen in range(NumBeams):
         if(NumBeams > 1):
             explain=explains[num_sen]
+            x_caption = ''
         else:
             explain=explains
+            x_caption = ''
         for word_ in explain:
             if word_ == '<start>':
                 if model_num <7:
                     x_caption = ''
             elif word_ == '<end>':
                 break
-            elif word_ == '.':
-                x_caption=x_caption[:-1]
-                x_caption += word_
             else:
-                x_caption += word_ + ' '
+                x_caption = x_caption + ' ' + word_
 
         if (NumBeams > 1):
-            x_caption=x_caption+'\n'
+            cap_list.append([x_caption])
 
-    return x_caption
+    if (NumBeams > 1):
+        return cap_list
+    else:
+        return x_caption
 
 
 #######################################################################################`
@@ -228,18 +235,26 @@ if __name__ == '__main__':
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
 
+        # Image preprocessing, normalization for the pretrained resnet
+    transform = transforms.Compose([
+        transforms.RandomCrop(args.crop_size),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.485, 0.456, 0.406),
+                             (0.229, 0.224, 0.225))])
+
 
     # Build data loader
     val_json = json.load(open(addr_coco_cap_val_path))
     test_json = json.load(open(addr_coco_cap_test2014_path))
     if (args.split=='test2014'):
         test_loader = BottomUp_get_loader('test2014', addr_coco_cap_test2014_path, vocab,
-                                 None, args.batch_size,
+                                          transform, args.batch_size,
                                  shuffle=False, num_workers=0, adaptive=args.isAdaptive)
     elif(args.split=='val'):
         name='val2014'
         test_loader = BottomUp_get_loader(name, addr_coco_cap_val_path, vocab,
-                                          None, args.batch_size,
+                                          transform, args.batch_size,
                                           shuffle=False, num_workers=0, adaptive=args.isAdaptive)
 
     # Build the models

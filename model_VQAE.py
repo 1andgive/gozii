@@ -47,7 +47,7 @@ class EnsembleVQAE(nn.Module):
 
             return logits, att, outputs_caption
 
-    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1, isBUTD=False):
+    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1, isBUTD=False, obj_nums=obj_nums):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -63,8 +63,9 @@ class EnsembleVQAE(nn.Module):
         # att_for_v dimension => [b, v_feature_dim, 1]
 
         atted_v_feats = att_for_v * v  # attended visual features
-        atted_v_feats_sum = torch.sum(atted_v_feats, 1).unsqueeze(1)
-        atted_v_feats_mean= torch.mean(atted_v_feats,1)
+        atted_v_feats_sum = torch.sum(atted_v_feats, 1)
+        atted_v_feats_mean= atted_v_feats_sum / obj_nums.unsqueeze(1)
+        atted_v_feats_sum=atted_v_feats_sum.unsqueeze(1)
 
         q_emb = self.BAN.module.extractQEmb(q)
         q_emb = q_emb[:, -1, :]

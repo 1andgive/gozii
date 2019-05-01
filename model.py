@@ -11,23 +11,6 @@ from copy import deepcopy
 # model3 = expectation, tanh
 
 
-class EncoderCNN(nn.Module):
-    def __init__(self, embed_size):
-        """Load the pretrained ResNet-152 and replace top fc layer."""
-        super(EncoderCNN, self).__init__()
-        resnet = models.resnet152(pretrained=True)
-        modules = list(resnet.children())[:-1]      # delete the last fc layer.
-        self.resnet = nn.Sequential(*modules)
-        self.linear = nn.Linear(resnet.fc.in_features, embed_size)
-        self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
-        
-    def forward(self, images):
-        """Extract feature vectors from input images."""
-        with torch.no_grad():
-            features = self.resnet(images)
-        features = features.reshape(features.size(0), -1)
-        features = self.bn(self.linear(features))
-        return features
 
 class Encoder_HieStackedCorr(nn.Module):
     def __init__(self, embed_size, vdim, model_num, num_stages=5,LRdim=64, hidden_size=512):
@@ -46,7 +29,7 @@ class Encoder_HieStackedCorr(nn.Module):
         self.act_relu=nn.ReLU()
         self.act_tanh=nn.Tanh()
         self.act_Lrelu = nn.LeakyReLU()
-    def forward_BUTD(self, Vmat, t_method='mean', model_num=1,isUnion=False, checkBeta=False):
+    def forward_BUTD(self, Vmat, t_method='mean', model_num=1,isUnion=False, checkBeta=False, obj_nums=36): # for fixed hdf, obj_nums are 36
         assert t_method in ['mean', 'uncorr']
         if(model_num > 6):
             model_num=1
@@ -54,10 +37,10 @@ class Encoder_HieStackedCorr(nn.Module):
 
         if(model_num==1):
             if(t_method == 'mean'):
-                features = self.MeanVmat(Vmat)
+                features = self.MeanVmat(Vmat, obj_nums=obj_nums)
             elif(t_method == 'uncorr'):
                 features,UMat=self.UnCorrVmat(Vmat)
-                features = self.MeanVmat(features)
+                features = self.MeanVmat(features, obj_nums=obj_nums)
         elif(model_num==2):
             if (t_method == 'mean'):
                 features = self.SumVmat(Vmat)
@@ -68,28 +51,28 @@ class Encoder_HieStackedCorr(nn.Module):
                 Vmat= Vmat.size(1) * Vmat
         elif(model_num==3):
             if (t_method == 'mean'):
-                features = self.MeanVmat(Vmat)
+                features = self.MeanVmat(Vmat, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
                 features, UMat = self.UnCorrVmat_tanh(Vmat)
-                features = self.MeanVmat(features)
+                features = self.MeanVmat(features, obj_nums=obj_nums)
         elif(model_num==4):
             if (t_method == 'mean'):
-                features = self.MeanVmat(Vmat)
+                features = self.MeanVmat(Vmat, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
                 features, UMat = self.UnCorrVmat_Lrelu(Vmat)
-                features = self.MeanVmat(features)
+                features = self.MeanVmat(features, obj_nums=obj_nums)
         elif (model_num == 5):
             if (t_method == 'mean'):
-                features = self.MeanVmat(Vmat)
+                features = self.MeanVmat(Vmat, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
                 features, UMat = self.UnCorrelatedResidualHierarchy(10,Vmat)
-                features = self.MeanVmat(features)
+                features = self.MeanVmat(features, obj_nums=obj_nums)
         elif (model_num == 6):
             if (t_method == 'mean'):
-                features = self.MeanVmat(Vmat)
+                features = self.MeanVmat(Vmat, obj_nums=obj_nums)
             elif (t_method == 'uncorr'):
                 features, UMat = self.UnCorrVmat_Detail(Vmat)
-                features = self.MeanVmat(features)
+                features = self.MeanVmat(features, obj_nums=obj_nums)
 
         if(t_method == 'uncorr'):
             # uncorr => isUnion : True
@@ -108,12 +91,12 @@ class Encoder_HieStackedCorr(nn.Module):
             unified_features=features
             return enc_features, unified_features, Vmat, None
 
-    def forward(self, Vmat, t_method='mean', model_num=1,checkBeta_=False):
+    def forward(self, Vmat, t_method='mean', model_num=1,checkBeta_=False, obj_nums=36):
         if(checkBeta_):
-            enc_features, _, _, betas = self.forward_BUTD(Vmat, t_method=t_method, model_num=model_num, checkBeta=checkBeta_)
+            enc_features, _, _, betas = self.forward_BUTD(Vmat, obj_nums=obj_nums, t_method=t_method, model_num=model_num, checkBeta=checkBeta_)
             return enc_features, betas
         else:
-            enc_features,_,_,_=self.forward_BUTD(Vmat,t_method=t_method,model_num=model_num, checkBeta=checkBeta_)
+            enc_features,_,_,_=self.forward_BUTD(Vmat, obj_nums=obj_nums, t_method=t_method,model_num=model_num, checkBeta=checkBeta_)
             return enc_features
 
     def UnCorrelatedResidualHierarchy(self, num_stages, Vmat):
@@ -132,8 +115,9 @@ class Encoder_HieStackedCorr(nn.Module):
             Vmat = Vmat + torch.matmul(Umat, Vmat)  # Vmat = V' (transposed version of V
         return Vmat, Umat
 
-    def MeanVmat(self,Vmat):
-        v_final=torch.mean(Vmat,1)
+    def MeanVmat(self,Vmat, obj_nums=36): # 36 are for fixed faster-rcnn hdf5
+        v_final=torch.sum(Vmat,1)
+        v_final = v_final / obj_nums.unsqueeze(1)
         return v_final
 
     def SumVmat(self,Vmat):
@@ -352,14 +336,14 @@ class BAN_HSC(nn.Module):
         self.encoder=encoder
         self.decoder=decoder
         self.vocab=vocab
-    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1):
+    def generate_caption(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne', model_num=1, obj_nums=36):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 
         atted_v_feats, logits, att = self.forward(v, b, q, t_method=t_method, x_method=x_method,
                                                   s_method=s_method)
-        encoded_features = self.encoder(atted_v_feats, t_method)
+        encoded_features = self.encoder(atted_v_feats, t_method, obj_nums=obj_nums)
 
 
         if(s_method == 'BestOne'):
@@ -373,7 +357,7 @@ class BAN_HSC(nn.Module):
 
         return Generated_Captions, logits, att
 
-    def generate_explain(self,Vmat, encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1):
+    def generate_explain(self,Vmat, encoded_features, vocab_candidates, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, obj_nums=36):
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
 
@@ -392,7 +376,7 @@ class BAN_HSC(nn.Module):
 
         return Generated_Explains
 
-    def generate_caption_n_context(self, v, b, q, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, useVQA=False, checkBeta=False):
+    def generate_caption_n_context(self, v, b, q, obj_nums=36, t_method='mean',x_method='sum', s_method='BestOne',isBUTD=False , isUnion=False, model_num=1, useVQA=False, checkBeta=False, isDuplicate=False):
 
         assert x_method in ['sum', 'mean', 'sat_cut', 'top3', 'top3_sat', 'weight_only', 'NoAtt']
         assert s_method in ['BestOne', 'BeamSearch']
@@ -408,10 +392,10 @@ class BAN_HSC(nn.Module):
                 logits=None
                 att=None
 
-            encoded_features, union_vfeats, atted_v_feats, betas = self.encoder.forward_BUTD(atted_v_feats, t_method=t_method,
+            encoded_features, union_vfeats, atted_v_feats, betas = self.encoder.forward_BUTD(atted_v_feats, obj_nums=obj_nums, t_method=t_method,
                                                                         model_num=model_num, isUnion=isUnion, checkBeta=True)
 
-            Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False, isDuplicate=False)
+            Generated_Captions = self.decoder.sample(atted_v_feats, union_vfeats, isUnion=False, isDuplicate=isDuplicate)
             if(checkBeta):
                 return Generated_Captions, logits, att, union_vfeats, atted_v_feats, betas
             else:
@@ -425,7 +409,7 @@ class BAN_HSC(nn.Module):
                 logits=None
                 att=None
 
-            encoded_features, betas = self.encoder(atted_v_feats, t_method, checkBeta_=True)
+            encoded_features, betas = self.encoder(atted_v_feats, t_method, checkBeta_=True, obj_nums=obj_nums)
             if(s_method == 'BestOne'):
                 Generated_Captions=self.decoder.sample(encoded_features, model_num=model_num)
             elif(s_method == 'BeamSearch'):
