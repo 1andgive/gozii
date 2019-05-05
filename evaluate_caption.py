@@ -3,6 +3,8 @@
 import os
 import sys
 
+# cap을 위한 model이 구성 되었을 때 그 성능을 평가하기 위함.
+# 평가 : 템플릿이 정해져있음
 
 
 import argparse

@@ -15,6 +15,8 @@ from address_server_XAI import *
 import progressbar
 import sys
 
+# union이라고 이름 붙인거는 self-attention. butd를 하는 부분. 
+#bottom up을 사용. paper에 안나온것도 알수있음~~~~~~~~
 
 
 # Device configuration

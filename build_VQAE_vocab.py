@@ -7,6 +7,8 @@ import pdb
 import json
 
 
+#VQAE dataset 에 대해서 vocab. data가 달라지면 항상 vacab을 만들어줘야함
+
 class Vocabulary(object):
     """Simple vocabulary wrapper."""
     def __init__(self):

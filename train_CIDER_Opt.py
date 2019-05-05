@@ -20,6 +20,9 @@ import sys
 
 from cider.cider import CiderScorer
 
+#self critical sequence training . reinforce 공부!!!!!!!!!!!!!
+#butd나 fast rcn에 의해서 학습 된거에 부가적으로 붙음. 성능++,. 필 수 ! (최근기법)
+
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

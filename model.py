@@ -10,6 +10,7 @@ from copy import deepcopy
 # model2 = probability, relu
 # model3 = expectation, tanh
 
+# cap에 관련된 modules. encoder, decoder. 
 
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
@@ -29,6 +30,8 @@ class EncoderCNN(nn.Module):
         features = self.bn(self.linear(features))
         return features
 
+# hdf file 받아와서하는거    
+    
 class Encoder_HieStackedCorr(nn.Module):
     def __init__(self, embed_size, vdim, model_num, num_stages=5,LRdim=64, hidden_size=512):
         super(Encoder_HieStackedCorr, self).__init__()
@@ -179,7 +182,11 @@ class Encoder_HieStackedCorr(nn.Module):
         return torch.matmul(UnCorr,Vmat), UnCorr
 
 
-
+# vocab size만큼 class가 있음. vocab size가 class.
+# decoderRNN은 일반적인 CNN LSTM에 사용하기 위함
+# 
+    
+    
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20):
         """Set the hyper-parameters and build the layers."""
@@ -345,6 +352,8 @@ class DecoderRNN(nn.Module):
 
         return sampled_id_list
 
+    
+#XAI
 class BAN_HSC(nn.Module):
     def __init__(self,BAN,encoder,decoder,vocab):
         super(BAN_HSC,self).__init__()
@@ -487,6 +496,7 @@ class BAN_HSC(nn.Module):
         return atted_v_feats, logits, att
 
 
+# butd할때
 
 
 
@@ -580,6 +590,8 @@ def max2D_k(list2D,k=1):
         idx1_list.append(torch.Tensor(idx1).unsqueeze(0))
     return torch.cat(value_list,0), torch.cat(idx0_list,0), torch.cat(idx1_list,0)
 
+
+#topdown decoder
 
 class DecoderTopDown(nn.Module):
     def __init__(self, embed_size, vdim, hidden_size1, hidden_size2, vocab_size, num_layers, max_seq_length=20, paramH=256, dropout=0.5):
@@ -962,6 +974,8 @@ class BeamQueue:
             self.items=[[[beam_data[y][x][0],
                           beam_data[y][x][1]] for y in range(batch_size)] for x in range(queue_len)]
 
+            
+# 모든 decoder type에 대해서 beam search가 가능하도록. beam search도 된다.! ! ! ! ! !!  코드,,이해하면,,좋지만,,손해ㅏ...복잡함... 
 
 def beam_decode(BeamNodeAdapter, PackedArguments, NumBeams, MaxSeqLength, EOS_Token, debug=False):
 

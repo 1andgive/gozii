@@ -27,6 +27,10 @@ from codes.dataset import VQAFeatureDataset
 from torch.utils.data import ConcatDataset
 
 
+# 진짜..자주..건드려야..되는... 것인데,,,  training을 할 때 data를 학습할 때 batch 단위만큼 꺼내서 학습을 하는데 file이 hdf형식으로 저장되어있기도 하고 image원본그대로 가져와서 쓰기도 하고 ..... code마다 cnn에 썼을 때랑 fastrcn에 대해 썼을때랑 다 다르게 해버리면 중구난방이 되어버리기 때문에 data type이 달라지면 그 달라진 data type에 따라서 통일된 form을 만들어줌. form을 통일시켜주는 것 . adapter. data 갈무리ㅎㅐ서 model이 쓸 수 있도록
+
+# 가 장 기 본 
+
 
 class CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""

@@ -5,6 +5,10 @@ from collections import Counter
 from pycocotools.coco import COCO
 import pdb
 
+from address_server_XAI import *
+
+#coco dataset에 대한 vocab만듦. 
+
 
 class Vocabulary(object):
     """Simple vocabulary wrapper."""
@@ -58,7 +62,8 @@ def build_vocab(json, threshold):
         vocab.add_word(word)
     #pdb.set_trace()
     return vocab
-
+ 
+# coco랑 VQAE랑 이부분이다름. VQAE는 안유명해서ㅠ     
 def main(args):
     vocab = build_vocab(json=[args.caption_train_path, args.caption_val_path], threshold=args.threshold)
     vocab_path = args.vocab_path
@@ -71,10 +76,10 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--caption_train_path', type=str,
-                        default='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_train2014.json',
+                        default=addr_coco_cap_train_path, #coco train path, val path에 있는 단어를 모두 만듦
                         help='path for train annotation file')
     parser.add_argument('--caption_val_path', type=str,
-                        default='D:\\Data_Share\\Datas\\VQA_COCO\\annotations\\captions_val2014.json',
+                        default=addr_coco_cap_val_path,
                         help='path for train annotation file')
     parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl', 
                         help='path for saving vocabulary wrapper')
