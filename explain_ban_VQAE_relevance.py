@@ -24,6 +24,7 @@ import codes.utils as utils
 from model import Encoder_HieStackedCorr, DecoderRNN, BAN_HSC, DecoderTopDown
 from model_VQAE import EnsembleVQAE
 from nltk.tokenize import word_tokenize
+from data_loader import VQAFeatureLoaderAdapter
 import pdb
 
 
@@ -118,7 +119,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
 
     DICT_RELEV=Dict_AC_2_Q
 
-    for v, b, q, i in iter(dataloader):
+    for v, b, q, i, num_objs in iter(dataloader):
         batch_size = v.size(0)
         if(rel_idx > 0):
             temp='['
@@ -135,6 +136,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 v = Variable(v).cuda()
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
+                num_objs= num_objs.cuda()
 
                 if (save_folder[i_cap] == 'CAPTION_LRCN'):
                     generated_captions, logits, att, encoded_feats,_ = caption_generator_list[i_cap].generate_caption_n_context(v, b, q,t_method='mean', x_method='weight_only', s_method=s_method_, useVQA=True)
@@ -385,7 +387,7 @@ if __name__ == '__main__':
     model = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
     model_BUTD = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    eval_loader = DataLoader(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    eval_loader = VQAFeatureLoaderAdapter(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:

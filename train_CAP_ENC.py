@@ -31,6 +31,7 @@ from model_VQAE import EnsembleVQAE
 import pickle
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
+from data_loader import VQAFeatureLoaderAdapter
 
 
 # Device configuration
@@ -147,7 +148,7 @@ if __name__ == '__main__':
     total_step = len(vqaE_loader)
 
     for epoch in range(args.num_epoch):
-        for i,(_,_,Wq,answer,Wc,lengths) in enumerate(vqaE_loader):
+        for i,(_,_,Wq,answer,Wc,lengths, num_objs) in enumerate(vqaE_loader):
 
             caption_encoder.zero_grad()
 
@@ -159,6 +160,8 @@ if __name__ == '__main__':
             #states=[None]
             states=None
             input_list=[]
+            num_objs=num_objs.cuda()
+
             # for k in range(min(captionMaxSeqLength,Wc.size(0))):
             #     input_list.append(decoder.embed(Wc[:,k]))
             #     #hiddens, states_tmp = caption_encoder(input_list[k], states[k])

@@ -30,6 +30,7 @@ import pdb
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+from data_loader import VQAFeatureLoaderAdapter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -109,7 +110,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
     csv_file = [os.path.join(save_fig_loc, save_name, 'model{}'.format(args.model_num),
                             '{}_reasonings.csv'.format(s_method_)) for save_name in save_folder]
 
-    for v, b, q, i in iter(dataloader):
+    for v, b, q, i, num_objs in iter(dataloader):
         if(idx > N):
             break
         for i_cap in range(len(caption_generator_list)):
@@ -120,6 +121,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 v = Variable(v).cuda()
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
+                num_objs= num_objs.cuda()
 
                 if (save_folder[i_cap] == 'CAPTION_LRCN'):
                     generated_captions, logits, att, encoded_feats,_ = caption_generator_list[i_cap].generate_caption_n_context(v, b, q,t_method='mean', x_method='NoAtt', s_method=s_method_, useVQA=True)
@@ -351,7 +353,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    eval_loader = DataLoader(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    eval_loader = VQAFeatureLoaderAdapter(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:

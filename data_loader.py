@@ -239,14 +239,14 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False, unknownToken=
     # Merge images (from tuple of 3D tensor to 4D tensor).
 
 
-
-
-
     if features[0] is not None:
         new_features = [features[idx] for idx in idcies]
+        obj_nums = [features[idx].size(0) for idx in idcies]
+        obj_nums=torch.Tensor(obj_nums)
         new_features = trim_collate(new_features)
     else:
         new_features=features
+        obj_nums = [0 for idx in idcies]
 
     if spatials[0] is not None:
         new_spatials = [spatials[idx] for idx in idcies]
@@ -255,7 +255,7 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False, unknownToken=
         new_spatials=spatials
 
     if (isTest and not(use_VQAE)):
-        return new_features, new_spatials, img_ids
+        return new_features, new_spatials, img_ids, obj_nums
     else:
 
         new_targets=[targets[idx] for idx in idcies]
@@ -263,7 +263,7 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False, unknownToken=
 
         #pdb.set_trace()
         if (not (use_VQAE) and not (use_VQAX)):
-            return new_features, new_spatials, new_targets, new_lengths
+            return new_features, new_spatials, new_targets, new_lengths, obj_nums
         elif(use_VQAE):
             new_questions=[questions[idx] for idx in idcies]
             new_answers=[answers[idx] for idx in idcies]
@@ -271,9 +271,9 @@ def collate_fn(data, use_VQAE=False, use_VQAX=False, isTest=False, unknownToken=
             new_answers=torch.stack(new_answers)
             if(isTest):
                 new_img_ids=[img_ids[idx] for idx in idcies]
-                return new_features, new_spatials, new_questions, new_answers, new_img_ids, new_lengths
+                return new_features, new_spatials, new_questions, new_answers, new_img_ids, new_lengths, obj_nums
             else:
-                return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths
+                return new_features, new_spatials, new_questions, new_answers, new_targets, new_lengths, obj_nums
 
 def get_loader(root, json_, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
@@ -336,6 +336,7 @@ def BottomUp_get_loader(name, json, vocab, transform, batch_size, shuffle, num_w
                                                   num_workers=num_workers,
                                                   collate_fn=lambda b: collate_fn(b, unknownToken=vocab('<unk>')))
     else:
+
         data_loader = torch.utils.data.DataLoader(dataset=coco,
                                                   batch_size=batch_size,
                                                   shuffle=shuffle,
@@ -587,4 +588,17 @@ def vqaE_CapEnc_Loader(name, dictionary_vqa, vocab_VQAE, batch_size, shuffle, nu
         vqaE_dset = ConcatDataset([vqaE_CapEnc_Dataset('train', dictionary_vqa, vocab_VQAE), vqaE_CapEnc_Dataset('val', dictionary_vqa, vocab_VQAE)])
 
     data_loader=torch.utils.data.DataLoader(dataset=vqaE_dset,batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=lambda b: collate_fn(b, use_VQAE=True, use_VQAX=False))
+    return data_loader
+
+def VQA_collate_fn(data, pre_collate):
+    v,b,q,i=pre_collate(data)
+    obj_nums = [v_sample.size(0) for v_sample in v]
+    obj_nums = torch.Tensor(obj_nums)
+    return v,b,q,i,obj_nums
+
+# eval_loader = DataLoader(eval_dset, batch_size, shuffle=True, num_workers=0, collate_fn=utils.trim_collate) # 이 부분 바꿔줘야됨
+def VQAFeatureLoaderAdapter(dataset, batch_size, shuffle=True, num_workers=0, collate_fn=None):
+    collate_fn_adapter = lambda b: VQA_collate_fn(b,collate_fn)
+    data_loader = torch.utils.data.DataLoader(dataset, batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=collate_fn_adapter)
+
     return data_loader

@@ -26,10 +26,10 @@ from model_VQAE import EnsembleVQAE
 import pdb
 
 
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+from data_loader import VQAFeatureLoaderAdapter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -106,7 +106,7 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
     #save_folder=['OURS', 'VQAE']
     # save_folder = ['CAPTION']
     save_folder = ['OURS']
-    for v, b, q, i in iter(dataloader):
+    for v, b, q, i, num_objs in iter(dataloader):
         if(idx > args_.max_images):
             break
         for i_cap in range(len(caption_generator_list)):
@@ -117,6 +117,8 @@ def check_captions(caption_generator_list, dataloader,Dict_qid2vid, vocab_list, 
                 v = Variable(v).cuda()
                 b = Variable(b).cuda()
                 q = Variable(q).cuda()
+
+                num_objs=num_objs.cuda()
 
 
                 generated_captions, logits, att, encoded_feats = caption_generator_list[i_cap].generate_caption_n_context(v, b, q,t_method=t_method_, x_method=args.x_method, s_method=s_method_)
@@ -336,7 +338,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(eval_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    eval_loader = DataLoader(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
+    eval_loader = VQAFeatureLoaderAdapter(eval_dset, batch_size, shuffle=False, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:

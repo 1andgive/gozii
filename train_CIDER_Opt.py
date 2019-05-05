@@ -102,6 +102,9 @@ def main(args):
     data_loader = BottomUp_get_loader('train+valCider', [coco_cap_train_path, coco_cap_val_path], vocab,
                                       transform, args.batch_size,
                                       shuffle=True, num_workers=args.num_workers, adaptive=args.isAdaptive)
+    # data_loader = BottomUp_get_loader('valCider', coco_cap_val_path, vocab,
+    #                                   transform, args.batch_size,
+    #                                   shuffle=False, num_workers=args.num_workers, adaptive=args.isAdaptive)
 
 
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
@@ -163,22 +166,22 @@ def main(args):
         tmp_len=0
 
 
-        for i, (features, spatials, img_Ids) in enumerate(data_loader):
+        for i, (features, spatials, img_Ids, obj_nums) in enumerate(data_loader):
             bar.update(i_train)
             cider_scorer = CiderScorer(n=4, sigma=6.0)
 
 
             features = features.cuda()
-
+            obj_nums=obj_nums.cuda()
 
             with torch.no_grad():
                 # Forward, backward and optimize
                 if (torch.cuda.device_count() > 1):
-                    features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, t_method=args.t_method,
+                    features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, obj_nums=obj_nums, t_method=args.t_method,
                                                                                            model_num=args.model_num,
                                                                                            isUnion=args.isUnion)
                 else:
-                    features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, t_method=args.t_method,
+                    features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, obj_nums=obj_nums, t_method=args.t_method,
                                                                                     model_num=args.model_num,
                                                                                     isUnion=args.isUnion)
 
@@ -227,6 +230,7 @@ def main(args):
 
 
 
+
                 # 1. CIDER REWARD
                 for batch_idx in range(outputs.size(0)):
 
@@ -241,6 +245,7 @@ def main(args):
                 score_baseline=scores[:,args.NumBeams]
                 score_beams=scores[:,:args.NumBeams]
                 Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
+
 
 
                 Reward_from_baseline, best_beam = torch.max(Reward_from_baseline, 1) # single-agent RL!!! only use the best-beam!!
@@ -277,7 +282,7 @@ def main(args):
             output_logit=SoftMax_(output_logit)
             output_logit=torch.log(output_logit)
             tmp_loss = - output_logit * mask
-            tmp_loss = torch.sum(tmp_loss, 1)
+            tmp_loss = torch.sum(tmp_loss, 1) / torch.sum(mask, 1)
 
             tmp_loss = sectionwise_Sum(tmp_loss,new_length)
             deserved_samples= ( Reward_from_baseline > 0 )

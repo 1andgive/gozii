@@ -23,6 +23,7 @@ from codes.dataset import Dictionary, VQAFeatureDataset
 import codes.base_model as base_model
 import codes.utils as utils
 import utils_hsc as utils_save
+from data_loader import VQAFeatureLoaderAdapter
 
 import pdb
 
@@ -123,7 +124,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
 
 
     for epoch in range(args.num_epoch):
-        for i, (v, b, q, a_)in enumerate(vqa_loader):
+        for i, (v, b, q, a_, num_objs)in enumerate(vqa_loader):
             bar.update(idx)
             batch_size = v.size(0)
             q = q.type(torch.LongTensor)
@@ -131,8 +132,7 @@ def train_XAI(uncorr_xai, vqa_loader, vocab_Caption, optimizer, args, Dict_AC_2_
             v = Variable(v).cuda()
             b = Variable(b).cuda()
             q = Variable(q).cuda()
-
-
+            num_objs=num_objs.cuda()
 
             uncorr_xai.CaptionEncoder.zero_grad()
             uncorr_xai.Guide.zero_grad()
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     constructor = 'build_%s' % args.model
     model = getattr(base_model, constructor)(vqa_dset, args.num_hid, args.op, args.gamma).cuda()
 
-    vqa_loader = DataLoader(vqa_dset, batch_size, shuffle=True, num_workers=0, collate_fn=utils.trim_collate)
+    vqa_loader = VQAFeatureLoaderAdapter(vqa_dset, batch_size, shuffle=True, num_workers=0, collate_fn=utils.trim_collate)
 
     # Load vocabulary wrapper
     with open(args.vocab_path, 'rb') as f:
