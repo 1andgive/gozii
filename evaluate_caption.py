@@ -152,7 +152,6 @@ def check_captions(caption_generator, dataloader,Dict_qid2vid, vocab,save_fig_lo
         #pdb.set_trace()
         captions_list.extend(beam_list)
 
-        pdb.set_trace()
         img_id_list.extend(img_ids)
 
     bar.update(idx)
