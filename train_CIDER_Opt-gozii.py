@@ -16,9 +16,12 @@ import progressbar
 from pycocotools.coco import COCO
 from tokenizer.ptbtokenizer import PTBTokenizer
 import sys
+import platform
 #=======================================================================================================================
-
-address_to_Yolov3='D:\\VisualGrounding/PyTorch-YOLOv3_train/'
+if(platform.system() == 'Linux'):
+    address_to_Yolov3='../../VisualGrounding/PyTorch-YOLOv3_train/'
+elif(platform.system() == 'Windows'):
+    address_to_Yolov3='D:\\VisualGrounding/PyTorch-YOLOv3_train/'
 
 sys.path.insert(0, address_to_Yolov3)
 from object_detect_pop import Yolov3
