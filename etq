@@ -1,0 +1,983 @@
+[33mcommit 86f4b68a43e1397668f90eaa5d70e983d959b999[m
+Merge: 2fc7fd5 ed02028
+Author: 1andgive <1andgive0821@gmail.com>
+Date:   Sun May 5 19:26:07 2019 +0900
+
+    Merge branch 'master' of https://github.com/seungjun45/BAN_XAI
+
+[33mcommit 2fc7fd5494171fb48727e584a9eea56e9633ff0d[m
+Author: 1andgive <1andgive0821@gmail.com>
+Date:   Sun May 5 19:25:26 2019 +0900
+
+    Jieun
+
+[33mcommit ed02028b85f27ff70058b537bb6b1b2cf2c7b1a6[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed May 1 20:13:09 2019 +0900
+
+    num_objs debugged for XAI related scripts
+
+[33mcommit 241eb5ba494f6b9f35324eb6d24f55756072807d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed May 1 17:51:53 2019 +0900
+
+    use train+val for Cider Opt
+
+[33mcommit 6fd6fb01b26d73eb9910a7b1282c663d13485829[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed May 1 17:36:03 2019 +0900
+
+    numObjs for Caption training fixed
+
+[33mcommit 1dfe716eca0d1b42c43839c6136056aea8ff1dfd[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed May 1 17:19:13 2019 +0900
+
+    num_objs applied: CIDER Opt, Caption Demo
+
+[33mcommit b52aafc2051c2fcb7f6d9ac199719c5cfd4076fb[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 30 11:40:42 2019 +0900
+
+    fix
+
+[33mcommit 5f00fcae0b975e88459b99a3da766143868f2d89[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sun Apr 28 18:42:46 2019 +0900
+
+    pc
+
+[33mcommit 066c6523a48b6bf0fde575e5fa13249cfe6a3176[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Apr 26 18:58:13 2019 +0900
+
+    max seq 20
+
+[33mcommit 2ef5145d35732e00bc15fcd9c322b5a63004fab6[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Apr 26 14:23:46 2019 +0900
+
+    Cider Memory
+
+[33mcommit 7cf166ed983edd969ee0829d290627adb0e54799[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Apr 26 13:37:09 2019 +0900
+
+    Cider Memory
+
+[33mcommit 48972ddb51df5d26bf1302c97467563cb7b294f2[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Apr 26 13:36:14 2019 +0900
+
+    Cider Memory
+
+[33mcommit 7cd4baa114248dc042071e6397bef18261d6a901[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Apr 26 01:59:57 2019 +0900
+
+    debug
+
+[33mcommit 3c68435fe5cf8468668251e51af9ce12a7441e1a[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 21:18:12 2019 +0900
+
+    fix
+
+[33mcommit d86e72a54bd70b84e38d7718c83c920a0586e5ea[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 21:16:10 2019 +0900
+
+    fix
+
+[33mcommit d042f2ea2ccdf33c1f4351302a1bd894960e1096[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 21:11:44 2019 +0900
+
+    fix
+
+[33mcommit 51fa2fb11e78fdb7de44c0de38830ab98098624d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 21:07:27 2019 +0900
+
+    train_Union change
+
+[33mcommit 9316f292b832819b724d6a01ca39985596dbad48[m
+Merge: ace864e 5dd28b0
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Thu Apr 25 19:53:49 2019 +0900
+
+    fix
+
+[33mcommit ace864e207a818cc697efbe01b83de5c81292caa[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Thu Apr 25 19:51:04 2019 +0900
+
+    sh file update
+
+[33mcommit 5dd28b0505b42758afeaa308adf2c041dcd863a9[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 19:49:24 2019 +0900
+
+    log delete
+
+[33mcommit 96ad38878dc9588472244ce95797669638fc1d63[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 19:40:07 2019 +0900
+
+    minor fix
+
+[33mcommit 911d2239ace901cff522b936b6f9b7a49a654e86[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 19:32:29 2019 +0900
+
+    gitignore update
+
+[33mcommit 16394a98f4a27304a50665f6ad1b5fcc6c279f14[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 19:28:50 2019 +0900
+
+    Cider Debug
+
+[33mcommit b8156d7f14445d9208ef02bc31e70c94d7f8081c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 18:28:03 2019 +0900
+
+    adaptive feature
+
+[33mcommit e4c57c4e96d24416f78a8ef5184965baf189bb55[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 16:47:50 2019 +0900
+
+    fix
+
+[33mcommit 69c9a539dd23887cb883f5ee49d7df266308363c[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Thu Apr 25 16:36:04 2019 +0900
+
+    server
+
+[33mcommit a56fc11d8e16874e33f9ced9e3ec611f3f02e2c9[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 16:33:35 2019 +0900
+
+    cider fix
+
+[33mcommit fa78efb7536880f78a9e9512fe255819abb1f6ff[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 16:20:28 2019 +0900
+
+    fix
+
+[33mcommit e8367b35554f43f847d978b0f4d6b30f5b4bee33[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 25 14:45:15 2019 +0900
+
+    load
+
+[33mcommit 39e0ad942f9ac68c84a781f491b11c74e2f0a733[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 24 17:36:53 2019 +0900
+
+    debug & butd
+
+[33mcommit bf311d8ab238af8704e98f570e14f571925d41ef[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 22 22:55:14 2019 +0900
+
+    gradient schedule
+
+[33mcommit 4246fdcc0db9332c8ec88f01fcc94449202fa700[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Mon Apr 22 02:08:41 2019 +0900
+
+    server fix
+
+[33mcommit 36e24dc121c0c28eccb0b07a4cb9ccbe67e40c3e[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 22 02:06:33 2019 +0900
+
+    fi
+
+[33mcommit 7e0f54588b361e571896fa527cce7f6a1cbb36ad[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 22 01:52:21 2019 +0900
+
+    ignore caption with <unk> token
+
+[33mcommit 2d2645b839c290892e6339361f5276abe1ace552[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Sat Apr 20 18:50:57 2019 +0900
+
+    server code
+
+[33mcommit c852509652166ab3db178b69f7ef13e05cf482be[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 18:46:18 2019 +0900
+
+    fix
+
+[33mcommit 25b16f82a9586ede38cb68d22748bf9ef36b49ff[m
+Merge: 8f3946c 3db3033
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 18:44:43 2019 +0900
+
+    fix
+
+[33mcommit 8f3946c36d49b75b324a66a0730840ff6a58c60a[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 18:43:53 2019 +0900
+
+    fix
+
+[33mcommit 3db3033352bdb27d74685f1452b2103f3e791dc4[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 18:14:06 2019 +0900
+
+    minor update
+
+[33mcommit 621d0661934cb48c1273513f61a3275070d390fc[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 17:58:00 2019 +0900
+
+    minor update
+
+[33mcommit 7e9f4eaaf8b74c24eedd0a133ddd45517a80b2c8[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 17:55:03 2019 +0900
+
+    scheduler
+
+[33mcommit 2b2b22f15927586964ece1035affaa289ae938bc[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Apr 20 17:32:13 2019 +0900
+
+    scheduler
+
+[33mcommit 5bf6c9d77fa6f949d87c9a8c63aa7b464764fcae[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Thu Apr 18 13:59:28 2019 +0900
+
+    server_fix
+
+[33mcommit 3a9581773a540f618f543fb8416b357613c13b59[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 18 13:34:21 2019 +0900
+
+    fix
+
+[33mcommit 38d50142c088f452735e6b3a9c0f1b339fee1b13[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 18 13:22:09 2019 +0900
+
+    update
+
+[33mcommit bbf8fef78f0464c0c1f57d861eeae99133eda20d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 18 12:47:17 2019 +0900
+
+    fix
+
+[33mcommit d734432d19247957831031bbb75a7273b5bc2405[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 18 10:33:28 2019 +0900
+
+    fix
+
+[33mcommit 37f33a2e991e32df4207bde16e011a8e2015d7d5[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 15 10:10:49 2019 +0900
+
+    fix
+
+[33mcommit 6123a8a4715beef4158717c704b5074e232782cd[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sun Apr 14 04:38:58 2019 +0900
+
+    BUTD update
+
+[33mcommit 432b05ce66f189110d67736a456f202c52167121[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sun Apr 14 04:12:32 2019 +0900
+
+    Cider Opt
+
+[33mcommit 0f367f4e5f5667d12d8e4c68c36f3302c97176d7[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sun Apr 14 04:06:49 2019 +0900
+
+    Cider Opt
+
+[33mcommit eaa63453fa34fa2d6d04e88cb37db621ad6e461a[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 11 15:26:35 2019 +0900
+
+    Cider Opt
+
+[33mcommit fd9513e3d59a9eb85e42bfc8a003dbd550867a51[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Apr 11 10:55:36 2019 +0900
+
+    Cider Opt
+
+[33mcommit 511171cc4ebc19439ea29e6f2411af729b6ef131[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 10 22:17:18 2019 +0900
+
+    Cider Opt
+
+[33mcommit 939240f93fd15a56b480a1143e0abd148786aa60[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 10 22:08:23 2019 +0900
+
+    Cider Opt
+
+[33mcommit 28751ea449410992e4376a108d48d3727544825d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 10 17:18:48 2019 +0900
+
+    Cider Opt
+
+[33mcommit 2c1816cd46c35b9c7218771042ff0ae4e981887b[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 10 14:13:52 2019 +0900
+
+    Cider Opt
+
+[33mcommit d3f508b1db9d376530cff60927d7506c599cd75c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 10 12:53:56 2019 +0900
+
+    Cider Opt
+
+[33mcommit 385fa9eb040cf075fd16c99c22efcc6a4c4f20c2[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 16:26:01 2019 +0900
+
+    Cider Opt
+
+[33mcommit ac400de4d37ff1b0bb751bd277e1fa1d981fbcdc[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 16:23:56 2019 +0900
+
+    Cider Opt
+
+[33mcommit 85a1570cca3bf26339dca6951b1d50eb314da46d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 16:07:18 2019 +0900
+
+    Cider Opt
+
+[33mcommit a2d10d0feac1d945a4ffb961aa9b5ab9e43ac152[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 16:04:31 2019 +0900
+
+    Revert "Cider Opt"
+    
+    This reverts commit 8fbfbeba69722e61a93af6fdfeb16f88c354caea.
+
+[33mcommit 639579551bc97d2372681f48277a395660e50b6e[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 16:04:27 2019 +0900
+
+    s
+
+[33mcommit a26fcfb38a36c142b46521ede2cd623402434cbc[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 16:01:50 2019 +0900
+
+    Revert "Cider Opt"
+    
+    This reverts commit 96d68cc536b34b3586ce8e2e822c53a1ebace7c0.
+
+[33mcommit 8fbfbeba69722e61a93af6fdfeb16f88c354caea[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 15:52:56 2019 +0900
+
+    Cider Opt
+
+[33mcommit 96d68cc536b34b3586ce8e2e822c53a1ebace7c0[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 14:07:38 2019 +0900
+
+    Cider Opt
+
+[33mcommit 9528369f04204dc39ff0525e54902c3febfa7d3e[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 14:03:01 2019 +0900
+
+    Cider Opt
+
+[33mcommit 0cb8dbc764ff9a2fa1a0cb109c7119c8cd6faca3[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 13:31:27 2019 +0900
+
+    Cider Opt
+
+[33mcommit 670e26b54551539506552c1d643216b546e50b67[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 13:30:16 2019 +0900
+
+    Cider Opt
+
+[33mcommit de0576e6c31809c7140ee5e2d043ce14d8964c75[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 13:21:44 2019 +0900
+
+    Cider Opt
+
+[33mcommit 2beece869bdf7d1dffcee9d0ce39c913174f2254[m
+Merge: a407c49 2777ce0
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 01:53:37 2019 +0900
+
+    d
+
+[33mcommit a407c495e90830b2fb0bacf812b36bd5252dbd87[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 01:50:43 2019 +0900
+
+    m
+
+[33mcommit 2777ce029e06ead6a33c7b501de8d9ec81a52dcc[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Tue Apr 9 01:50:08 2019 +0900
+
+    server
+
+[33mcommit 48aa7aebcbeaab9968e458ceac0f57e826b7a0a1[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Tue Apr 9 01:49:30 2019 +0900
+
+    server
+
+[33mcommit e0c7f566a18556c0d48494b0ce9163e5342b4e3c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 01:17:29 2019 +0900
+
+    Cider Opt
+
+[33mcommit 46b7b41f9f24ad6fd4125a53a4ba52529dc0e2ec[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 00:49:46 2019 +0900
+
+    Cider Opt
+
+[33mcommit 9707ab6f2007eb8c31fe2b2df7eaf57a390e9fbc[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 00:39:44 2019 +0900
+
+    Cider Opt
+
+[33mcommit b952e8e93cd8c97b17ebdbb5f2cee8e2e2b4f5bf[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 9 00:07:22 2019 +0900
+
+    Cider Opt
+
+[33mcommit 33dceaba05114bd3c55fdb0984c6ad950a7ed41b[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 23:56:53 2019 +0900
+
+    Cider Opt
+
+[33mcommit 34fc2ffc888e362d0be71c563f1ac24627ed9d36[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 22:28:41 2019 +0900
+
+    Cider Opt
+
+[33mcommit 741415fec4f3050e903a065c4356f8280f3a9681[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 22:11:06 2019 +0900
+
+    Cider Opt
+
+[33mcommit 2b6f3d3242f7847bc3d7b8f0c45345248bb62b68[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 21:55:26 2019 +0900
+
+    Cider Opt
+
+[33mcommit 3f2deb71b56a6068b191ae6668bd08d67301fdcf[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 21:51:28 2019 +0900
+
+    Cider Opt
+
+[33mcommit d3d8d2d9adb5d07c56eb09d986f58b4659f838f4[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 21:47:55 2019 +0900
+
+    Cider Opt
+
+[33mcommit d5c4fd47c767623d4ab6828a99a90ddd9bf3ebc7[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 21:16:24 2019 +0900
+
+    Cider Opt
+
+[33mcommit a4e80772d0aff35356f5ea2889013d613e5b1510[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Apr 8 15:16:07 2019 +0900
+
+    Cider Start
+
+[33mcommit 570fd6e44343be04d53ec09c4b85b4269903c3e5[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Apr 5 15:04:36 2019 +0900
+
+    BeamSearch Final!!!
+
+[33mcommit 297354a169387cb3256d6e297983975c44d17681[m
+Merge: 5048bdd d792b55
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 3 13:18:37 2019 +0900
+
+    Merge branch 'master' of https://github.com/seungjun45/BAN_XAI
+
+[33mcommit d792b55fab2fbf246f0f688c8ab55a2a16127204[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Wed Apr 3 13:17:55 2019 +0900
+
+    server
+
+[33mcommit 6f61277c59da18b3c9a939aafb1066de4d81a1b3[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Wed Apr 3 13:11:19 2019 +0900
+
+    server
+
+[33mcommit 5048bdda7205fac944039965bf88dc3b12944072[m
+Merge: cb33b74 888cbdf
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 3 12:54:35 2019 +0900
+
+    pc;
+
+[33mcommit cb33b74e641a277fff58b8702da8cafe4ee28561[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 3 12:53:36 2019 +0900
+
+    pc
+
+[33mcommit 888cbdf77f664068419500c348e36c520be5d491[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Wed Apr 3 12:52:57 2019 +0900
+
+    server
+
+[33mcommit 6900377aab93e4fe61aa0dc682c118ab0674bfee[m
+Merge: d9e38df 6e779af
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Wed Apr 3 11:03:14 2019 +0900
+
+    server
+
+[33mcommit d9e38df3248ae0f75953a1edf8a5736d1c7ab5ba[m
+Author: seungjun_server2 <seungjun45@gmail.com>
+Date:   Wed Apr 3 10:58:40 2019 +0900
+
+    server
+
+[33mcommit 6e779af73d7dadcc877f874ff26f76e2b0c42ef5[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Apr 3 10:47:33 2019 +0900
+
+    workwork
+
+[33mcommit e784f4cfecbf0351f29733e2f3ae438848510428[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Apr 2 16:21:06 2019 +0900
+
+    df
+
+[33mcommit 26bcd323290a1ee90bed5667eb2bc8c0a944e9ac[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Mar 25 16:17:14 2019 +0900
+
+    change
+
+[33mcommit dde7ef6c811a3903b09a131022d81e2836542f7e[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Mar 25 16:12:45 2019 +0900
+
+    change
+
+[33mcommit 008f1ddc96049a0ed0d56ee4c720252ab00b5f25[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Mar 25 16:08:19 2019 +0900
+
+    change
+
+[33mcommit f30c97ed5820957823acab43fb8f0ed0a82c7824[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Mar 25 16:07:31 2019 +0900
+
+    change
+
+[33mcommit d70901fff416e96dab1ed3b6cd97faad86c916ae[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Mar 22 17:04:39 2019 +0900
+
+    working
+
+[33mcommit 12544cb26f7351ce374e233039cc30b9df06a191[m
+Author: seungjun_server <seungjun45@gmail.com>
+Date:   Wed Mar 20 18:22:06 2019 +0900
+
+    s
+
+[33mcommit cc7e25ce484a02c6549eae5e23c5281e6d883789[m
+Merge: 0b30af6 b76e7a4
+Author: seungjun_server <seungjun45@gmail.com>
+Date:   Wed Mar 20 18:15:40 2019 +0900
+
+    server
+
+[33mcommit 0b30af6d3b1b12cf635dd4e6b91eb433ecfc28bb[m
+Author: seungjun_server <seungjun45@gmail.com>
+Date:   Wed Mar 20 18:12:42 2019 +0900
+
+    s
+
+[33mcommit b76e7a47c98e4814eb59cf0f0a63b0347f983398[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Mar 20 18:11:07 2019 +0900
+
+    workwork
+
+[33mcommit 2f4813736cb8e25d17256f1ed85771188f2ba57f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Mar 19 04:02:22 2019 +0900
+
+    workwork
+
+[33mcommit 55e216b886d9edc25a0e423e9257571eee07b139[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Mar 4 13:33:51 2019 +0900
+
+    Final for ICCV
+
+[33mcommit b99c438ddeb3c30822e3bfa806d005d343173bb0[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 28 07:57:08 2019 +0900
+
+    debugging
+
+[33mcommit 1a672830913ec4ba8a7802b8a695786e7eb95fe8[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Feb 27 16:53:24 2019 +0900
+
+    test json generation
+
+[33mcommit 0d05c7a6a4020750ee575ed215b562270e57bb7d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Feb 27 16:27:34 2019 +0900
+
+    test json generation
+
+[33mcommit bb74ca3ae85326cb38df22cf38a5a24bb4302221[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Feb 26 17:17:49 2019 +0900
+
+    m
+
+[33mcommit 4fb6cf0076385b6c3c1410e651462b70e37addb4[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Feb 26 17:15:55 2019 +0900
+
+    m
+
+[33mcommit 5c50c17c430637a1c764b6f2bd464cf7a268764c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Feb 26 17:11:25 2019 +0900
+
+    Debuggings
+
+[33mcommit 3955caed2d7a0a3a647d40dfbc2a46873fb5587b[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Feb 19 11:46:01 2019 +0900
+
+    BeamSearch_Batch
+
+[33mcommit 66a42842def338515af417c3c741b81e0e3d4cc5[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 21:26:21 2019 +0900
+
+    fix
+
+[33mcommit 45a7fa8b3f0533a28b9e822c86d8743d06d7b831[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 19:05:40 2019 +0900
+
+    fix
+
+[33mcommit 7872577676d447be1161aadcf10b6997e84852e4[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 17:05:59 2019 +0900
+
+    fix
+
+[33mcommit 9bbc8d2551d0bda6d301047687c67d4ab6c591b3[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 15:25:07 2019 +0900
+
+    HOME UPDATES
+
+[33mcommit ff27e152d9a5d77e7c4ef57f0cc5234759e7cdaa[m
+Author: seungjun_server <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 15:09:59 2019 +0900
+
+    DATAPARALLEL BUTD
+
+[33mcommit 2a0e815b1496122cb43b708a0589457bf577c635[m
+Author: seungjun_server <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 14:36:53 2019 +0900
+
+    DATAPARALLEL BUTD
+
+[33mcommit 5ea5c2d9e93566817f5260dcad6cd38eb408cbaf[m
+Author: seungjun_server <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 14:16:48 2019 +0900
+
+    UNION WEIGHTS FOR VMAT
+
+[33mcommit 414c431c2cb80993229d332bce28a4860d074a78[m
+Author: seungjun_server <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 13:43:35 2019 +0900
+
+    DATA PARALLEL
+
+[33mcommit 40c13c9a473c24cf041776b93b768688b0270cf8[m
+Author: seungjun_server <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 11:57:05 2019 +0900
+
+    DIRECTORY CHANGE FOR SERVER
+
+[33mcommit eddc7b844c013b7590b86ae4acae49bf6567d264[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Feb 7 10:21:00 2019 +0900
+
+    BUTD CAPTION
+
+[33mcommit 9a550bfe5d471d38d5ee223dbcf630b17a2a964c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Feb 2 16:52:32 2019 +0900
+
+    BUTD CAPS
+
+[33mcommit 9b6c7c670fa33a945a752cc3d106655e9c7d96bc[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Feb 1 16:04:32 2019 +0900
+
+    BUTD CAPS
+
+[33mcommit aeeaeb5be91a4b598f53cae5bfa6b1f9c8f32c82[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Feb 1 01:21:15 2019 +0900
+
+    decoder feeding 1
+
+[33mcommit af4611bfd3b0117ce25ab4e595162f4595073986[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Jan 31 20:57:50 2019 +0900
+
+    BUTD caption added
+
+[33mcommit 64d1df13f8410de4ccbb45df2b45e73de2608cb0[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Jan 29 14:02:00 2019 +0900
+
+    updates;
+
+[33mcommit 5705db3efee1fca908eb1c742617214e968c6b3c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Jan 28 14:31:42 2019 +0900
+
+    decoder feeding 1
+
+[33mcommit 62f29701e62379eb52d12f9542b0d7119510133f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Jan 24 11:58:23 2019 +0900
+
+    context vector as decoder init
+
+[33mcommit 46fa87a3bea1bd3aab9df299e22cf3510410dc0c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Jan 22 14:37:56 2019 +0900
+
+    ICML trial
+
+[33mcommit d15bb8611527c5defdb980fa3b810013e8333209[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sat Jan 12 19:20:40 2019 +0900
+
+    BAN_VQAE training
+
+[33mcommit fb750b5a1a29d45b0e1bb00c1aaefdd08b62898f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Jan 9 19:45:16 2019 +0900
+
+    model_num_7 added (context vector to decoder init state)
+
+[33mcommit aa78a8e822bb38b39760f9244f0b93e5c3774eab[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Jan 9 19:25:00 2019 +0900
+
+    model_num_7 added (context vector to decoder init state)
+
+[33mcommit e5e1861a1acec8511c3ca27145122c7d618f63b9[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Jan 8 20:46:33 2019 +0900
+
+    attention in caption-encoder
+
+[33mcommit cf2e8685f500e72cd20b87ec2cb2bacfc69cf50f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Jan 8 20:45:03 2019 +0900
+
+    attention in caption-encoder
+
+[33mcommit 3ee79cce4742b294f5b669ded32d0a2dbb50881c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Dec 17 16:26:51 2018 +0900
+
+    VQA_E added
+
+[33mcommit 5dab458164bd1808b72c87d494787f7877427696[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Nov 30 17:12:34 2018 +0900
+
+    XAI demo + UnCorrUnit change
+
+[33mcommit b4479c23fad345bbb718fc318bc53d6c9378dd7b[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Nov 30 10:23:37 2018 +0900
+
+    uncorr detail
+
+[33mcommit 2e226fd518e6ca15981d17bebd779f41c1dafafd[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Nov 29 14:54:45 2018 +0900
+
+    matlab proof file
+
+[33mcommit 122dce79ccfccaf77984485547ed2a79a2a985b9[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Nov 28 17:47:00 2018 +0900
+
+    guide log loss
+
+[33mcommit 58ba544337885443889c1f2c25ea699cf47d6f6f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Nov 28 12:06:21 2018 +0900
+
+    L0 and L2 norm for Guide
+
+[33mcommit 2e0dd4c4a94ec0a831474c51bacb2ed59ba96ee0[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Nov 28 11:23:27 2018 +0900
+
+    L0 and L2 norm for Guide
+
+[33mcommit 0b97a1acbdb9e3bcb6c5168d6e249cfdb76fa62d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Nov 23 15:19:28 2018 +0900
+
+    guide update;
+
+[33mcommit 7ac262ad053011ab7eb890d875e499d15c929d6b[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Nov 22 10:22:53 2018 +0900
+
+    Convergence Check added//BiTransform for Final Classifier
+
+[33mcommit d43a139061b65495575addb6a466b7bd55e3485c[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Nov 21 20:37:36 2018 +0900
+
+    update;
+
+[33mcommit ca05c7c4e8c8f299a479bb0faba65af4785f7543[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Nov 21 14:40:20 2018 +0900
+
+    explain module update;
+
+[33mcommit 68a5f17680c133bc3bbfdecf03ac5556a55d040d[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Nov 20 19:56:02 2018 +0900
+
+    explain module 1st
+
+[33mcommit 0917aa25dc3e205c0e8db17cb7459c02177593b9[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Nov 20 19:38:39 2018 +0900
+
+    explain module 1st
+
+[33mcommit 9b8d80c96cc0de9b7425b74a50c6d4b1f2509cfa[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Nov 20 09:41:15 2018 +0900
+
+    remove duplicate scripts;
+
+[33mcommit 2f9d1fad88598f83714b9f161469f949ca1ed6df[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Nov 20 09:38:15 2018 +0900
+
+    integrate model_num
+
+[33mcommit fb427ca044ad48ef6d59c6c62bb1f1cfc01a3d82[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Mon Nov 19 13:44:49 2018 +0900
+
+    RelScore
+
+[33mcommit 11d2aa3cf6f9bc0bd3f41f3b71402734d4bb83c4[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Nov 13 02:52:48 2018 +0900
+
+    XAI remaining start
+
+[33mcommit 9be1691883531250ee379df242fdb0573dd2d899[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Sun Nov 11 07:58:13 2018 +0900
+
+    LRdim
+
+[33mcommit dd17059ac4bc73fbdd2281d2ed865ea94360d90e[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Wed Nov 7 15:28:46 2018 +0900
+
+    Tanh vs Relu
+
+[33mcommit 50da3e2339bef64aa3147e62099c7d01171719e9[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Tue Nov 6 09:22:02 2018 +0900
+
+    BeamSearch + UnCorr
+
+[33mcommit cb018161464057e10cc359066dac6641187ee55f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Nov 2 09:41:32 2018 +0900
+
+    BeamSearch + UnCorr
+
+[33mcommit b7a4bf31fbdd805fd8ebefb3f3450bf3916a2f07[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Nov 2 00:54:09 2018 +0900
+
+    BeamSearch + UnCorr
+
+[33mcommit ea93f27ad5e85092d3e5fb1c0c4909430c6377f1[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Thu Nov 1 19:54:27 2018 +0900
+
+    BeamSearch + UnCorr
+
+[33mcommit 6a1f26893148485d0a1efc331ef95f3b67b7ec1f[m
+Author: Seungjun <seungjun45@kaist.ac.kr>
+Date:   Fri Oct 26 07:04:01 2018 +0900
+
+    first simple explanation for BAN
