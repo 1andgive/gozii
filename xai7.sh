@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu
 
 source activate sj_torch1.0
-CUDA_VISIBLE_DEVICES=3 python train_CIDER_Opt-gozii.py --batch_size 10 --model_path /mnt/server5_hard1/seungjun/XAI/BAN_XAI/models_BUTD/standard_vocab/ --isAdaptive True --checkpoint_dir model-75.pth 
+python train_CIDER_Opt-gozii.py --batch_size 100 --model_path /mnt/server5_hard1/seungjun/XAI/BAN_XAI/models_BUTD/standard_vocab/ --isAdaptive True --checkpoint_dir model-75.pth 
 source deactivate
 
 

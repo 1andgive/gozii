@@ -16,6 +16,19 @@ import progressbar
 from pycocotools.coco import COCO
 from tokenizer.ptbtokenizer import PTBTokenizer
 import sys
+import platform
+import copy
+import torch.nn.modules.distance as F
+#=======================================================================================================================
+if(platform.system() == 'Linux'):
+    address_to_Yolov3='/mnt/server5_hard1/seungjun/VisualGrounding/PyTorch-YOLOv3_train/'
+elif(platform.system() == 'Windows'):
+    address_to_Yolov3='D:\\VisualGrounding/PyTorch-YOLOv3_train/'
+
+sys.path.insert(0, address_to_Yolov3)
+from object_detect_pop import Yolov3
+#=======================================================================================================================
+
 
 
 from cider.cider import CiderScorer
@@ -99,12 +112,15 @@ def main(args):
     tokenizer = PTBTokenizer()
     overall_gts = tokenizer.tokenize(overall_gts)
 
-    data_loader = BottomUp_get_loader('train+valCider', [coco_cap_train_path, coco_cap_val_path], vocab,
-                                      transform, args.batch_size,
-                                      shuffle=True, num_workers=args.num_workers, adaptive=args.isAdaptive)
-    # data_loader = BottomUp_get_loader('valCider', coco_cap_val_path, vocab,
-    #                                   transform, args.batch_size,
-    #                                   shuffle=False, num_workers=args.num_workers, adaptive=args.isAdaptive)
+    if (args.split=='test2014'):
+        data_loader = BottomUp_get_loader('test2014', addr_coco_cap_test2014_path, vocab,
+                                          transform, args.batch_size,
+                                 shuffle=False, num_workers=0, adaptive=args.isAdaptive)
+    elif(args.split=='val'):
+        name='val2014'
+        data_loader = BottomUp_get_loader(name, addr_coco_cap_val_path, vocab,
+                                          transform, args.batch_size,
+                                          shuffle=False, num_workers=0, adaptive=args.isAdaptive)
 
 
     # data_loader.dataset[i] => tuple[[object1_feature #dim=2048] [object2_..] [object3_...] ...], tuple[[object1_bbox #dim=6] [object2_...] [object3_...] ...], caption]
@@ -151,7 +167,7 @@ def main(args):
     if not os.path.exists(
             os.path.join(args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim))):
         os.makedirs(os.path.join(args.model_path, args.t_method, 'model{}_LR{}'.format(args.model_num, args.LRdim)))
-    N = args.num_epochs * len(data_loader)
+    N = len(data_loader)
     bar = progressbar.ProgressBar(maxval=N).start()
     i_train = 0
 
@@ -160,100 +176,192 @@ def main(args):
     EOS_Token_=vocab('<end>')
     SOS_Token_=vocab('<start>')
 
-    for epoch in range(args.num_epochs):
-        # for i, (images, captions, lengths) in enumerate(data_loader):
-        print('epoch start')
-        tmp_len=0
+
+    coco_train_img_file_template='COCO_train2014_{0:012d}.jpg'
+    coco_val_img_file_template = 'COCO_val2014_{0:012d}.jpg'
+    coco_test_img_file_template = 'COCO_test2014_{0:012d}.jpg'
+
+    coco_train_img_file_template=os.path.join(addr_train_imgs,coco_train_img_file_template)
+    coco_val_img_file_template=os.path.join(addr_val_imgs,coco_val_img_file_template)
+    coco_test_img_file_template=os.path.join(addr_test2014_imgs, coco_test_img_file_template)
+    
+    cosine_sim=F.CosineSimilarity()
+
+    tmp_len=0
+    best_captions_list = []
+    img_id_list=[]
+
+    for i, (features, spatials, img_Ids, obj_nums) in enumerate(data_loader):
+        print('{} / {} samples being processed'.format(i_train,N))
+        sys.stdout.flush()
+        
+        bar.update(i_train)
+        
+        cider_scorer = CiderScorer(n=4, sigma=6.0)
 
 
-        for i, (features, spatials, img_Ids, obj_nums) in enumerate(data_loader):
-            bar.update(i_train)
-            cider_scorer = CiderScorer(n=4, sigma=6.0)
+        features = features.cuda()
+        obj_nums=obj_nums.cuda()
+
+        with torch.no_grad():
+            # Forward, backward and optimize
+            if (torch.cuda.device_count() > 1):
+                features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, obj_nums=obj_nums, t_method=args.t_method,
+                                                                                       model_num=args.model_num,
+                                                                                       isUnion=args.isUnion)
+            else:
+                features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, obj_nums=obj_nums, t_method=args.t_method,
+                                                                                model_num=args.model_num,
+                                                                                isUnion=args.isUnion)
+
+            1. ############################################ Q - V approach #########################################
+
+            # if (epoch % args.SelfCriticFrequency == 0):  # periodically update
+            #
+            #     outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
+            #     for img_Id, output in zip(img_Ids, outputs):
+            #         outputs_cache[img_Id]=output
+            #     tmp_len += len(img_Ids)
+            #     if i % args.log_step == 0:
+            #         print(' {} of {} caption updated'.format(tmp_len, len(overall_gts)))
+            #         sys.stdout.flush()
+            #     continue
+            #
+            # else:
+            #
+            #     outputs = torch.stack([outputs_cache[img_Id] for img_Id in img_Ids],0)
+
+            1. #################################### OR POLICY GRADIENT #############################################
+
+            outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=EOS_Token_)
+
+            1. #####################################################################################################
 
 
-            features = features.cuda()
-            obj_nums=obj_nums.cuda()
+            #output_baseline=decoder.sample(features,union_vfeats)
+            # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
 
-            with torch.no_grad():
-                # Forward, backward and optimize
-                if (torch.cuda.device_count() > 1):
-                    features_encoded, union_vfeats, features, _ = encoder.module.forward_BUTD(features, obj_nums=obj_nums, t_method=args.t_method,
-                                                                                           model_num=args.model_num,
-                                                                                           isUnion=args.isUnion)
+            2. ################################################## RL HERE ##############################################
+            caption_list=[]
+            caption_list_word=[]
+            for batch_idx in range(outputs.size(0)):
+                beam_list_word = []
+                baseline=[]
+                for beam_idx in range(outputs.size(2)):
+                    caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
+                               range(outputs.size(1))]
+                    beam_list_word.append(caption)
+                    #baseline = [vocab.idx2word[output_baseline[batch_idx][w_idx].item()] for w_idx in
+                       #    range(output_baseline.size(1))]
+                beam_list=caption_refine(beam_list_word,NumBeams=args.NumBeams)
+                #baseline=caption_refine(baseline)
+                #beam_list.append([baseline])
+                caption_list.append(beam_list)
+                caption_list_word.append(beam_list_word)
+
+
+            ############### 코딩을 해보자
+
+
+            #
+
+            # 핀포인트찍어서 디버깅
+            img_path_list=[]
+            for imgID in img_Ids:
+
+                if(os.path.exists(coco_train_img_file_template.format(imgID))):
+                    img_path_list.append(coco_train_img_file_template.format(imgID))
+                elif(os.path.exists(coco_val_img_file_template.format(imgID))):
+                    img_path_list.append(coco_val_img_file_template.format(imgID))
+                elif(os.path.exists(coco_test_img_file_template.format(imgID))):
+                    img_path_list.append(coco_test_img_file_template.format(imgID))                     
                 else:
-                    features_encoded, union_vfeats, features, _ = encoder.forward_BUTD(features, obj_nums=obj_nums, t_method=args.t_method,
-                                                                                    model_num=args.model_num,
-                                                                                    isUnion=args.isUnion)
+                    print('No image to read')
+                    assert False
 
-                1. ############################################ Q - V approach #########################################
+            Yolo_outs=Yolov3(img_path_list, addr_to_Yolov3 = address_to_Yolov3, )
+            Yolo_words=[[obj[-1] for obj in sample] for sample in Yolo_outs]
+            person_embed=decoder.embed(torch.cuda.LongTensor([vocab('person')]))
+            man_embed=decoder.embed(torch.cuda.LongTensor([vocab('man')]))
 
-                # if (epoch % args.SelfCriticFrequency == 0):  # periodically update
-                #
-                #     outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=vocab('<end>'))
-                #     for img_Id, output in zip(img_Ids, outputs):
-                #         outputs_cache[img_Id]=output
-                #     tmp_len += len(img_Ids)
-                #     if i % args.log_step == 0:
-                #         print(' {} of {} caption updated'.format(tmp_len, len(overall_gts)))
-                #         sys.stdout.flush()
-                #     continue
-                #
-                # else:
-                #
-                #     outputs = torch.stack([outputs_cache[img_Id] for img_Id in img_Ids],0)
-
-                1. #################################### OR POLICY GRADIENT #############################################
-
-                outputs = decoder.BeamSearch2(features, union_vfeats, NumBeams=args.NumBeams, EOS_Token=EOS_Token_)
-
-                1. #####################################################################################################
+            embed_list=[]
+            for sample in Yolo_outs:
+                sample_embed=[]
+                for obj in sample:
+                    tmp_embed=decoder.embed(torch.cuda.LongTensor([vocab(obj[-1])]))
+                    sample_embed.append(tmp_embed) #0부터 (n-1)까지 각 sample마다의 object class를 embeding시킨 것.이 sample_embed에들어감. object 개수가 여러개면 여러개 들어감. 배치사이즈 :n 
+                embed_list.append(sample_embed)#batch마다!!!!!!!!!
 
 
-                #output_baseline=decoder.sample(features,union_vfeats)
-                # print('output b size: {}, lengths b size : {}'.format(outputs.size(0),len(lengths)))
+            #pdb.set_trace()        
+            # object별로 embeding.         q
+            batch_size=outputs.size(0)
+            caption_list_dummy=copy.deepcopy(caption_list)
+            Yolo_not_hit_table=torch.Tensor(outputs.size(0),args.NumBeams).fill_(0)
+            for (sample, sample_in_wordlist, refined_sample_in_wordlist, Yolo_not_hit) in zip(Yolo_outs, caption_list_word, caption_list_dummy, Yolo_not_hit_table):
+                for obj in sample :
+                    g=obj[-1]
 
-                2. ################################################## RL HERE ##############################################
-                caption_list=[]
-                for batch_idx in range(outputs.size(0)):
-                    beam_list = []
-                    baseline=[]
-                    for beam_idx in range(outputs.size(2)):
-                        caption = [vocab.idx2word[outputs[batch_idx][w_idx][beam_idx].item()] for w_idx in
-                                   range(outputs.size(1))]
-                        beam_list.append(caption)
-                        #baseline = [vocab.idx2word[output_baseline[batch_idx][w_idx].item()] for w_idx in
-                           #    range(output_baseline.size(1))]
-                    beam_list=caption_refine(beam_list,NumBeams=args.NumBeams)
-                    #baseline=caption_refine(baseline)
-                    #beam_list.append([baseline])
-                    caption_list.append(beam_list)
+                    g_embed=decoder.embed(torch.cuda.LongTensor([vocab(g)]))
+                    for beam_idx in range(args.NumBeams):
+                        #if(not(g in sample_in_wordlist[beam_idx])):
+                            #refined_sample_in_wordlist[beam_idx][0] += ' avengers'
+                        Yolo_In_Sentence=False
+                        for t_step in range(20):
+                            t_step_word_embed=decoder.embed(torch.cuda.LongTensor([vocab(sample_in_wordlist[beam_idx][t_step])]))
+                            if( 0.6 <= cosine_sim(g_embed, t_step_word_embed) ):
+                                Yolo_In_Sentence=True
+                        if(not(Yolo_In_Sentence)):    
+                            #refined_sample_in_wordlist[beam_idx][0] += ' avengers'
+                            Yolo_not_hit[beam_idx] += 1
+
+            best_idx=[]
+            for sample_idx in range(batch_size):
+                minimum_hit=torch.min(Yolo_not_hit_table[sample_idx],0)[0]
+                min_hit_idx=(minimum_hit==Yolo_not_hit_table[sample_idx])
+                for beam_idx in range(args.NumBeams):
+                    if(min_hit_idx[beam_idx]==1):
+                        break
+                best_idx.append(beam_idx)
+
+            best_captions=[]
+            for sample_idx in range(batch_size):
+                best_captions.append(caption_list[sample_idx][best_idx[sample_idx]][0])
+
+            #                for j in range(5-1) :
+            #                    for k in range(20-1) :
+            #                        if Yolo_outs == caption_list_word[i][j][k] :
+            #                         
+            #                            pass
+            #                    else :
+            #                        caption_list_word[i][j][k].append('avengers')
 
 
+            #score_opt = score_beams[:,0] #0 대신 index. (0으로해놓으면) 첫번째애들만 데려옴. 0대신 뭐넣을건지 ~~~ YOLO 연동시키고 
+            best_captions_list.extend(best_captions)
+            img_id_list.extend(img_Ids)
+            i_train += 1
+
+    result_json=make_json(best_captions_list, img_id_list)
+
+    if(args.split == 'val'):
+        args.split += '2014'
+
+    with open(args.result_json_path + '/captions_%s_%s_results.json' \
+              % (args.split, args.method), 'w') as f:
+
+        json.dump(result_json, f)
 
 
-                # 1. CIDER REWARD
-                for batch_idx in range(outputs.size(0)):
-
-                    ref=overall_gts[img_Ids[batch_idx]]
-
-                    for beam_idx in range(outputs.size(2)): #+1있엇는데 지움
-                        hypo = caption_list[batch_idx][beam_idx]
-                        cider_scorer += (hypo[0], ref)
-                (score, scores) = cider_scorer.compute_score('corpus')
-
-                scores=torch.Tensor(scores).view(outputs.size(0), args.NumBeams) # args.NumBeams <= NumBeams // 1 <=  baseline caption
-                #score_baseline=scores[:,args.NumBeams]
-                score_beams=scores[:,:args.NumBeams] # 각각 sample마다 첫번째 dim : 각 sample마다 , 두번째 dim : 각 sample마다의 beam. 가장 높은 점수를 찾게 해야하는데 점수를 찾는건 YOLO에서 나온 detection. 
-                #Reward_from_baseline = score_beams - score_baseline.unsqueeze(1)
-                pdb.set_trace()  # 핀포인트찍어서 디버깅
-                score_opt = score_beams[:,0] #0 대신 index. (0으로해놓으면) 첫번째애들만 데려옴. 0대신 뭐넣을건지 ~~~ YOLO 연동시키고 승준오빠가 만들어주신대..! 
-
-            # Print log info
-            if i % args.log_step == 0:
-                print('Cider: {:1.4f}'
-                      .format(torch.mean(score_opt))) # beam을 해서 가져온 score를 score_opt 
-                sys.stdout.flush()
-
+def make_json(captions, ImgIds):
+    utils.assert_eq(len(captions), len(ImgIds))
+    results = []
+    for i in range(len(captions)):
+        result = {}
+        result['image_id'] = ImgIds[i]
+        result['caption'] = captions[i]
+        results.append(result)
+    return results
            
         # Save the model checkpoints # 결과를 저장할 위치
        #  model_path = os.path.join(
@@ -289,6 +397,9 @@ if __name__ == '__main__':
     parser.add_argument('--isUnion', type=bool, default=False)
     parser.add_argument('--SelfCriticFrequency', type=int, default=5)
     parser.add_argument('--isAdaptive', type=bool, default=False)
+    parser.add_argument('--split', type=str, default='test2014', help='test2014 // val')
+    parser.add_argument('--result_json_path', type=str, default='test_json/', help='saving path for captioning json')
+    parser.add_argument('--method', type=str, default='gozii+version+0', help='applied method')
     args = parser.parse_args()
     print(args)
     main(args)

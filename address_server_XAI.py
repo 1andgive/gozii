@@ -10,6 +10,7 @@ sys.path.append('/mnt/server5_hard1/seungjun/XAI/BAN_XAI')
 if(platform.system() == 'Linux'):
     addr_BAN = '/mnt/server5_hard1/seungjun/VQA/BAN'
     addr_test_imgs='/mnt/server5_hard1/seungjun/Data_Share/Datas/VQA_COCO/Images/test2015'#실제파일경로.cnn할때씀
+    addr_test2014_imgs='/mnt/server5_hard1/seungjun/Data_Share/Datas/VQA_COCO/Images/test2014'#실제파일경로.cnn할때씀
     addr_train_imgs='/mnt/server5_hard1/seungjun/Data_Share/Datas/VQA_COCO/Images/train2014'
     addr_val_imgs='/mnt/server5_hard1/seungjun/Data_Share/Datas/VQA_COCO/Images/val2014'
     addr_hdf5path='/mnt/server5_hard1/seungjun/Data_Share/Datas/VQA_COCO/BottomUpPreTrain/hdf5' 
